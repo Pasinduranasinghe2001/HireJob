@@ -78,27 +78,29 @@ HireJob/
 
 ## 🏃 Getting Started
 
-### 1. Start Database & Redis (Docker)
+### 1. Database Setup
+Your system already has **PostgreSQL 18** running locally on port `5432`.
+The database `hirejob` and user `hirejob` (password: `hirejob123`) have been automatically configured.
+
+*(Optional)* If you prefer Docker containers:
 ```bash
 docker compose up -d
 ```
-This spins up PostgreSQL on port `5432` and Redis on port `6379`.
 
 ### 2. Run the Backend (Spring Boot)
 ```bash
 cd backend
 .\mvnw.cmd spring-boot:run
 ```
-The API starts at `http://localhost:8080`.
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
+The API starts at **`http://localhost:8081`** *(configured on port 8081 to avoid conflict with existing services)*.
+- Swagger UI Documentation: `http://localhost:8081/swagger-ui.html`
 
 ### 3. Run the Frontend (React + Vite)
 ```bash
 cd frontend
-npm install
 npm run dev
 ```
-Open `http://localhost:5173` in your browser. All `/api` requests are automatically proxied to Spring Boot.
+Open `http://localhost:5173` in your browser. All `/api` requests are automatically proxied to Spring Boot on `localhost:8081`.
 
 ---
 
@@ -111,3 +113,4 @@ Open `http://localhost:5173` in your browser. All `/api` requests are automatica
    - Provide an AI prompt assistant to write high-converting job descriptions and recommend fair market rates.
 3. **Mobile App**:
    - Future expansion to React Native (Expo) sharing the TypeScript API client and authentication flow.
+
