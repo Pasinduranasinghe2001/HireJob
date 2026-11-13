@@ -89,5 +89,23 @@ public class JobController {
         String imageUrl = jobService.uploadImage(id, file, userDetails.getId());
         return ResponseEntity.ok(ApiResponse.success("Image uploaded successfully", imageUrl));
     }
+
+    @PostMapping("/{id}/images")
+    public ResponseEntity<ApiResponse<List<String>>> uploadImages(
+            @PathVariable Long id,
+            @RequestParam("images") List<MultipartFile> files,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        List<String> imageUrls = jobService.uploadImages(id, files, userDetails.getId());
+        return ResponseEntity.ok(ApiResponse.success("Images uploaded successfully (Max 5)", imageUrls));
+    }
+
+    @PostMapping("/{id}/promote")
+    public ResponseEntity<ApiResponse<JobResponse>> promoteJob(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "7") int days,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        JobResponse job = jobService.upgradeToPriority(id, days, userDetails.getId());
+        return ResponseEntity.ok(ApiResponse.success("Job promoted to priority successfully", job));
+    }
 }
 

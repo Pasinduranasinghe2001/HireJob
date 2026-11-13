@@ -41,6 +41,15 @@ export const jobService = {
     return response.data.data;
   },
 
+  async uploadJobImages(jobId: number, files: File[]): Promise<string[]> {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('images', file));
+    const response = await api.post<ApiResponse<string[]>>(`/jobs/${jobId}/images`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data.data;
+  },
+
   async applyToJob(data: ApplicationData): Promise<void> {
     await api.post('/applications', data);
   },

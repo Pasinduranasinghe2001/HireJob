@@ -33,4 +33,12 @@ public class JobRequest {
     private BigDecimal salaryMin;
 
     private BigDecimal salaryMax;
+
+    private Integer durationDays; // null or 0 = Unlimited, or 7, 14, 30, etc.
+
+    private String contactPhone;
+
+    private String contactWhatsapp;
+
+    private String contactEmail;
 }

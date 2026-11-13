@@ -18,12 +18,12 @@ export const JobFilter: React.FC<JobFilterProps> = ({
   onReset,
 }) => {
   return (
-    <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-xs space-y-6">
-      <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-        <h3 className="font-semibold text-gray-900 text-sm">Filters</h3>
+    <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-xs space-y-6 transition-colors">
+      <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-700">
+        <h3 className="font-semibold text-gray-900 dark:text-white text-sm">Filters</h3>
         <button
           onClick={onReset}
-          className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+          className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 font-medium cursor-pointer"
         >
           Reset All
         </button>
@@ -31,8 +31,8 @@ export const JobFilter: React.FC<JobFilterProps> = ({
 
       {/* Job Type filter */}
       <div>
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-          Job Type
+        <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+          Service Type
         </label>
         <div className="space-y-2">
           {[
@@ -40,7 +40,7 @@ export const JobFilter: React.FC<JobFilterProps> = ({
             { label: 'Permanent', value: 'PERMANENT' },
             { label: 'Temporary', value: 'TEMPORARY' },
           ].map((item) => (
-            <label key={item.value} className="flex items-center text-sm text-gray-700 cursor-pointer">
+            <label key={item.value} className="flex items-center text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
               <input
                 type="radio"
                 name="jobType"
@@ -57,11 +57,11 @@ export const JobFilter: React.FC<JobFilterProps> = ({
       {/* Category filter */}
       {categories.length > 0 && (
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
             Category
           </label>
           <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-            <label className="flex items-center text-sm text-gray-700 cursor-pointer">
+            <label className="flex items-center text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
               <input
                 type="radio"
                 name="category"
@@ -72,7 +72,7 @@ export const JobFilter: React.FC<JobFilterProps> = ({
               All Categories
             </label>
             {categories.map((cat) => (
-              <label key={cat} className="flex items-center text-sm text-gray-700 cursor-pointer">
+              <label key={cat} className="flex items-center text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
                 <input
                   type="radio"
                   name="category"

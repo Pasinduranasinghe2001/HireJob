@@ -46,6 +46,34 @@ public class Job {
 
     private String imageUrl;
 
+    @Column(columnDefinition = "TEXT")
+    private String imageUrls; // Comma-separated list of up to 5 image URLs
+
+    private Integer durationDays; // null = Unlimited
+
+    private LocalDateTime expiresAt; // calculated auto-delete/expiration timestamp
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean isPriority = false; // Paid bump to top
+
+    private LocalDateTime priorityExpiresAt;
+
+    private String contactPhone;
+
+    private String contactWhatsapp;
+
+    private String contactEmail;
+
+    @Builder.Default
+    private Integer viewsCount = 0;
+
+    @Builder.Default
+    private Double spamScore = 0.0;
+
+    @Builder.Default
+    private Boolean isFlagged = false;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default

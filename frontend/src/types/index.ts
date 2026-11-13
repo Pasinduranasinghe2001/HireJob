@@ -5,6 +5,9 @@ export interface User {
   phone: string;
   avatarUrl: string | null;
   role: 'ROLE_POSTER' | 'ROLE_CLIENT' | 'ROLE_ADMIN';
+  emailVerified?: boolean;
+  twoFactorEnabled?: boolean;
+  twoFactorType?: string;
   createdAt: string;
 }
 
@@ -20,6 +23,17 @@ export interface Job {
   salaryMin: number;
   salaryMax: number;
   imageUrl: string | null;
+  imageUrls?: string[] | null;
+  durationDays?: number | null;
+  expiresAt?: string | null;
+  isPriority?: boolean;
+  priorityExpiresAt?: string | null;
+  contactPhone?: string;
+  contactWhatsapp?: string;
+  contactEmail?: string;
+  viewsCount?: number;
+  spamScore?: number;
+  isFlagged?: boolean;
   status: 'ACTIVE' | 'CLOSED' | 'EXPIRED';
   postedBy: User;
   createdAt: string;
@@ -33,10 +47,38 @@ export interface Review {
   createdAt: string;
 }
 
+export interface JobApplication {
+  id: number;
+  jobId: number;
+  jobTitle?: string;
+  jobLocation?: string;
+  message: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+  applicant: User;
+  createdAt: string;
+}
+
+export interface PaymentRecord {
+  id: number;
+  userId: number;
+  userFullName: string;
+  jobId: number;
+  jobTitle: string;
+  amount: number;
+  packageType: string;
+  paymentMethod: string;
+  transactionId: string;
+  status: 'COMPLETED' | 'PENDING' | 'FAILED';
+  createdAt: string;
+}
+
 export interface AuthResponse {
   token: string;
   tokenType: string;
   user: User;
+  twoFactorRequired?: boolean;
+  twoFactorType?: string;
+  tempToken?: string;
 }
 
 export interface ApiResponse<T> {
@@ -76,6 +118,10 @@ export interface PostJobData {
   location: string;
   salaryMin: number;
   salaryMax: number;
+  durationDays?: number | null;
+  contactPhone?: string;
+  contactWhatsapp?: string;
+  contactEmail?: string;
 }
 
 export interface ApplicationData {

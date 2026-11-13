@@ -39,6 +39,25 @@ public class User {
     @Column(nullable = false)
     private Role role;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean emailVerified = false;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean twoFactorEnabled = false;
+
+    private String twoFactorType; // "EMAIL_OTP", "SMS_OTP", "PASSKEY"
+
+    private String twoFactorSecret;
+
+    private String googleId;
+
+    /** Incremented to invalidate every active session of this user (password change, forced logout). */
+    @JsonIgnore
+    @Builder.Default
+    private Integer tokenVersion = 0;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;

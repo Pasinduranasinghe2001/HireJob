@@ -27,6 +27,17 @@ public class JobResponse {
     private BigDecimal salaryMin;
     private BigDecimal salaryMax;
     private String imageUrl;
+    private java.util.List<String> imageUrls;
+    private Integer durationDays;
+    private LocalDateTime expiresAt;
+    private Boolean isPriority;
+    private LocalDateTime priorityExpiresAt;
+    private String contactPhone;
+    private String contactWhatsapp;
+    private String contactEmail;
+    private Integer viewsCount;
+    private Double spamScore;
+    private Boolean isFlagged;
     private JobStatus status;
     private UserResponse postedBy;
     private LocalDateTime createdAt;

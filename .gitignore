@@ -62,3 +62,11 @@ uploads/
 .DS_Store
 Thumbs.db
 
+
+# Secrets
+.env
+backend/.env
+frontend/.env
+!backend/.env.example
+!frontend/.env.example
+

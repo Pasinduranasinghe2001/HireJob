@@ -1,42 +1,98 @@
 server:
-  port: 8081
+  port: ${SERVER_PORT:8081}
+  # Never leak internals (stack traces / exception messages) to clients
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+    include-exception: false
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        secure: ${COOKIE_SECURE:false}
+        same-site: strict
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
 
 spring:
+  # Local secrets live in backend/.env (git-ignored). See backend/.env.example
+  config:
+    import: optional:file:.env[.properties]
+
   datasource:
-    url: jdbc:postgresql://localhost:5432/hirejob
-    username: hirejob
-    password: hirejob123
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/hirejob}
+    username: ${DB_USERNAME:hirejob}
+    password: ${DB_PASSWORD:hirejob123}
     driver-class-name: org.postgresql.Driver
 
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
 
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 
   servlet:
     multipart:
       max-file-size: 5MB
-      max-request-size: 5MB
+      max-request-size: 26MB
+
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
+          starttls:
+            enable: true
+            required: true
 
 app:
   jwt:
-    secret: 4a6f624d61726b6574706c6163654869726553656372657432303234214a5754546f6b656e5369676e696e674b657948657265
-    expiration-ms: 86400000
+    # Override JWT_SECRET (Base64, >= 64 bytes) in production!
+    secret: ${JWT_SECRET:4a6f624d61726b6574706c6163654869726553656372657432303234214a5754546f6b656e5369676e696e674b657948657265}
+    expiration-ms: ${JWT_EXPIRATION_MS:28800000}        # 8 hours for normal users
+    admin-expiration-ms: ${JWT_ADMIN_EXPIRATION_MS:1800000} # 30 minutes for admin sessions
+  security:
+    cookie-secure: ${COOKIE_SECURE:false}   # set true when served over HTTPS
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+    login-otp-required: ${LOGIN_OTP_REQUIRED:true}
+  admin:
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
+    full-name: ${ADMIN_FULL_NAME:HireJob Administrator}
+    allowed-ips: ${ADMIN_ALLOWED_IPS:}      # optional comma separated allow-list
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}
+  sms:
+    twilio-account-sid: ${TWILIO_ACCOUNT_SID:}
+    twilio-auth-token: ${TWILIO_AUTH_TOKEN:}
+    twilio-from-number: ${TWILIO_FROM_NUMBER:}
 
 file:
-  upload-dir: uploads
+  upload-dir: ${UPLOAD_DIR:uploads}
 
 springdoc:
   api-docs:
+    enabled: ${SWAGGER_ENABLED:false}
     path: /v3/api-docs
   swagger-ui:
+    enabled: ${SWAGGER_ENABLED:false}
     path: /swagger-ui.html
+
+logging:
+  level:
+    org.hibernate.SQL: warn

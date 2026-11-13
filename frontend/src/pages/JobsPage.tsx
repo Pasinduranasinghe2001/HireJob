@@ -11,46 +11,48 @@ import { FiBriefcase } from 'react-icons/fi';
 export const JobsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [keyword, setKeyword] = useState(searchParams.get('keyword') || '');
-  const [location, setLocation] = useState(searchParams.get('location') || '');
-  const [type, setType] = useState(searchParams.get('type') || '');
+  const keyword = searchParams.get('keyword') || '';
+  const location = searchParams.get('location') || '';
+  const type = searchParams.get('type') || '';
   const [selectedCategory, setSelectedCategory] = useState('');
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // Sync state with query parameters
-  useEffect(() => {
-    setKeyword(searchParams.get('keyword') || '');
-    setLocation(searchParams.get('location') || '');
-    setType(searchParams.get('type') || '');
-    setPage(0);
-  }, [searchParams]);
-
-  const fetchJobs = async () => {
-    setLoading(true);
-    try {
-      const res = await jobService.searchJobs({
-        keyword: keyword || undefined,
-        location: location || undefined,
-        type: type || undefined,
-        page,
-        size: 9,
-      });
-      setJobs(res.content || []);
-      setTotalPages(res.totalPages || 1);
-    } catch (err) {
-      console.error('Error fetching jobs', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const triggerRefresh = () => setRefreshKey((k) => k + 1);
 
   useEffect(() => {
-    fetchJobs();
-  }, [keyword, location, type, page]);
+    let ignore = false;
+    const load = async () => {
+      try {
+        const res = await jobService.searchJobs({
+          keyword: keyword || undefined,
+          location: !location || location === 'Entire Sri Lanka (All Country)' ? undefined : location,
+          type: type || undefined,
+          page,
+          size: 9,
+        });
+        if (!ignore) {
+          setJobs(res.content || []);
+          setTotalPages(res.totalPages || 1);
+        }
+      } catch (err) {
+        console.error('Error fetching jobs', err);
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    };
+
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, [keyword, location, type, page, refreshKey]);
 
   const handleSearch = (params: { keyword: string; location: string; type: string }) => {
     const nextParams = new URLSearchParams();
@@ -77,8 +79,10 @@ export const JobsPage: React.FC = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Search Header */}
       <div>
-        <h1 className="text-3xl font-extrabold text-gray-900">Explore Jobs & Gigs</h1>
-        <p className="text-sm text-gray-500 mt-1">Search temporary gigs or permanent roles in your area</p>
+        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">Explore Services & Jobs</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          Search temporary gigs or permanent service providers across Sri Lanka
+        </p>
         <div className="mt-6">
           <JobSearch
             initialKeyword={keyword}
@@ -96,7 +100,6 @@ export const JobsPage: React.FC = () => {
           <JobFilter
             selectedType={type}
             onTypeChange={(newType) => {
-              setType(newType);
               const p = new URLSearchParams(searchParams);
               if (newType) p.set('type', newType);
               else p.delete('type');
@@ -107,9 +110,6 @@ export const JobsPage: React.FC = () => {
             onCategoryChange={setSelectedCategory}
             onReset={() => {
               setSelectedCategory('');
-              setType('');
-              setKeyword('');
-              setLocation('');
               setSearchParams(new URLSearchParams());
             }}
           />
@@ -123,7 +123,7 @@ export const JobsPage: React.FC = () => {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredJobs.map((job) => (
-                  <JobCard key={job.id} job={job} />
+                  <JobCard key={job.id} job={job} onRefresh={triggerRefresh} />
                 ))}
               </div>
 
@@ -133,17 +133,17 @@ export const JobsPage: React.FC = () => {
                   <button
                     disabled={page === 0}
                     onClick={() => setPage((p) => Math.max(p - 1, 0))}
-                    className="px-4 py-2 border rounded-lg text-sm bg-white disabled:opacity-40 cursor-pointer"
+                    className="px-4 py-2 border dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 disabled:opacity-40 cursor-pointer"
                   >
                     Previous
                   </button>
-                  <span className="text-sm text-gray-600 px-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-400 px-2">
                     Page {page + 1} of {totalPages}
                   </span>
                   <button
                     disabled={page >= totalPages - 1}
                     onClick={() => setPage((p) => p + 1)}
-                    className="px-4 py-2 border rounded-lg text-sm bg-white disabled:opacity-40 cursor-pointer"
+                    className="px-4 py-2 border dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 disabled:opacity-40 cursor-pointer"
                   >
                     Next
                   </button>
@@ -151,11 +151,11 @@ export const JobsPage: React.FC = () => {
               )}
             </>
           ) : (
-            <div className="text-center py-20 bg-white rounded-2xl border border-gray-100 p-8">
+            <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-8">
               <FiBriefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <h3 className="text-base font-semibold text-gray-700">No matching jobs found</h3>
-              <p className="text-sm text-gray-500 mt-1">
-                Try loosening your search filters or searching a broader location.
+              <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300">No matching services found</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Try loosening your search filters or searching a broader district in Sri Lanka.
               </p>
             </div>
           )}

@@ -5,16 +5,56 @@ export const authService = {
   async login(data: LoginData): Promise<AuthResponse> {
     const response = await api.post<ApiResponse<AuthResponse>>('/auth/login', data);
     const authData = response.data.data;
-    localStorage.setItem('token', authData.token);
-    localStorage.setItem('user', JSON.stringify(authData.user));
+    if (authData.token) {
+      localStorage.setItem('token', authData.token);
+      localStorage.setItem('user', JSON.stringify(authData.user));
+    }
     return authData;
+  },
+
+  async loginWithGoogle(data: { email: string; fullName: string; googleId?: string; avatarUrl?: string }): Promise<AuthResponse> {
+    const response = await api.post<ApiResponse<AuthResponse>>('/auth/google', data);
+    const authData = response.data.data;
+    if (authData.token) {
+      localStorage.setItem('token', authData.token);
+      localStorage.setItem('user', JSON.stringify(authData.user));
+    }
+    return authData;
+  },
+
+  async verifyTwoFactor(email: string, code: string): Promise<AuthResponse> {
+    const response = await api.post<ApiResponse<AuthResponse>>('/auth/verify-2fa', { email, code });
+    const authData = response.data.data;
+    if (authData.token) {
+      localStorage.setItem('token', authData.token);
+      localStorage.setItem('user', JSON.stringify(authData.user));
+    }
+    return authData;
+  },
+
+  async toggleTwoFactor(enabled: boolean, twoFactorType: string = 'SMS_OTP'): Promise<User> {
+    const response = await api.post<ApiResponse<User>>('/auth/toggle-2fa', { enabled, twoFactorType });
+    const updatedUser = response.data.data;
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    return updatedUser;
+  },
+
+  async verifyEmail(email: string, code: string): Promise<boolean> {
+    const response = await api.post<ApiResponse<boolean>>('/auth/verify-email', { email, code });
+    return response.data.data;
+  },
+
+  async sendVerificationEmail(email: string): Promise<void> {
+    await api.post(`/auth/send-verification-email?email=${encodeURIComponent(email)}`);
   },
 
   async register(data: RegisterData): Promise<AuthResponse> {
     const response = await api.post<ApiResponse<AuthResponse>>('/auth/register', data);
     const authData = response.data.data;
-    localStorage.setItem('token', authData.token);
-    localStorage.setItem('user', JSON.stringify(authData.user));
+    if (authData.token) {
+      localStorage.setItem('token', authData.token);
+      localStorage.setItem('user', JSON.stringify(authData.user));
+    }
     return authData;
   },
 

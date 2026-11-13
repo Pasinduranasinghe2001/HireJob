@@ -1,14 +1,19 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { authService } from '../services/auth.service';
-import type { User, LoginData, RegisterData } from '../types';
+import type { User, LoginData, RegisterData, AuthResponse } from '../types';
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: (data: LoginData) => Promise<void>;
-  register: (data: RegisterData) => Promise<void>;
+  login: (data: LoginData) => Promise<AuthResponse>;
+  loginWithGoogle: (data: { email: string; fullName: string; googleId?: string; avatarUrl?: string }) => Promise<AuthResponse>;
+  verifyTwoFactor: (email: string, code: string) => Promise<AuthResponse>;
+  toggleTwoFactor: (enabled: boolean, twoFactorType?: string) => Promise<User>;
+  verifyEmail: (email: string, code: string) => Promise<boolean>;
+  sendVerificationEmail: (email: string) => Promise<void>;
+  register: (data: RegisterData) => Promise<AuthResponse>;
   logout: () => void;
 }
 
@@ -39,16 +44,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, []);
 
-  const login = useCallback(async (data: LoginData) => {
+  const login = useCallback(async (data: LoginData): Promise<AuthResponse> => {
     const authData = await authService.login(data);
-    setToken(authData.token);
-    setUser(authData.user);
+    if (authData.token) {
+      setToken(authData.token);
+      setUser(authData.user);
+    }
+    return authData;
   }, []);
 
-  const register = useCallback(async (data: RegisterData) => {
+  const loginWithGoogle = useCallback(async (data: { email: string; fullName: string; googleId?: string; avatarUrl?: string }): Promise<AuthResponse> => {
+    const authData = await authService.loginWithGoogle(data);
+    if (authData.token) {
+      setToken(authData.token);
+      setUser(authData.user);
+    }
+    return authData;
+  }, []);
+
+  const verifyTwoFactor = useCallback(async (email: string, code: string): Promise<AuthResponse> => {
+    const authData = await authService.verifyTwoFactor(email, code);
+    if (authData.token) {
+      setToken(authData.token);
+      setUser(authData.user);
+    }
+    return authData;
+  }, []);
+
+  const toggleTwoFactor = useCallback(async (enabled: boolean, twoFactorType: string = 'SMS_OTP'): Promise<User> => {
+    const updatedUser = await authService.toggleTwoFactor(enabled, twoFactorType);
+    setUser(updatedUser);
+    return updatedUser;
+  }, []);
+
+  const verifyEmail = useCallback(async (email: string, code: string): Promise<boolean> => {
+    const res = await authService.verifyEmail(email, code);
+    if (res && user) {
+      const updatedUser = { ...user, emailVerified: true };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    }
+    return res;
+  }, [user]);
+
+  const sendVerificationEmail = useCallback(async (email: string): Promise<void> => {
+    await authService.sendVerificationEmail(email);
+  }, []);
+
+  const register = useCallback(async (data: RegisterData): Promise<AuthResponse> => {
     const authData = await authService.register(data);
-    setToken(authData.token);
-    setUser(authData.user);
+    if (authData.token) {
+      setToken(authData.token);
+      setUser(authData.user);
+    }
+    return authData;
   }, []);
 
   const logout = useCallback(() => {
@@ -65,6 +114,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!token && !!user,
         loading,
         login,
+        loginWithGoogle,
+        verifyTwoFactor,
+        toggleTwoFactor,
+        verifyEmail,
+        sendVerificationEmail,
         register,
         logout,
       }}
@@ -74,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {

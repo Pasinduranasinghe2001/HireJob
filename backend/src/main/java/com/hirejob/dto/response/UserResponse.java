@@ -20,5 +20,8 @@ public class UserResponse {
     private String phone;
     private String avatarUrl;
     private Role role;
+    private Boolean emailVerified;
+    private Boolean twoFactorEnabled;
+    private String twoFactorType;
     private LocalDateTime createdAt;
 }
