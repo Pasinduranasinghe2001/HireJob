@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FiBriefcase, FiHeart } from 'react-icons/fi';
+import { FiHeart } from 'react-icons/fi';
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -11,12 +11,13 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand info */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">
-                <FiBriefcase className="w-4 h-4" />
-              </div>
-              <span className="text-xl font-bold text-gray-900 dark:text-white">HireJob</span>
-            </div>
+            <Link to="/" className="inline-block group">
+              <img
+                src="/logo.png"
+                alt="HireJob Logo"
+                className="h-10 w-auto max-w-[160px] object-contain group-hover:scale-105 transition-transform"
+              />
+            </Link>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               The premier marketplace connecting service providers, temporary gigs, and permanent job opportunities with clients across Sri Lanka.
             </p>

@@ -6,7 +6,6 @@ import { useTheme } from '../../context/ThemeContext';
 import { useSavedServices } from '../../context/SavedServicesContext';
 import SavedServicesDrawer from '../common/SavedServicesDrawer';
 import {
-  FiBriefcase,
   FiUser,
   FiLogOut,
   FiMenu,
@@ -47,13 +46,12 @@ export const Navbar: React.FC = () => {
         <div className="flex justify-between h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Link to="/" className="flex items-center gap-2 group">
-              <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md group-hover:bg-blue-700 transition">
-                <FiBriefcase className="w-5 h-5" />
-              </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                HireJob
-              </span>
+            <Link to="/" className="flex items-center gap-2.5 group">
+              <img
+                src="/logo.png"
+                alt="HireJob Logo"
+                className="h-10 w-auto max-w-[140px] sm:max-w-[170px] object-contain group-hover:scale-105 transition-transform"
+              />
             </Link>
             <div className="hidden md:flex ml-10 space-x-6">
               <Link
