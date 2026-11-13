@@ -46,12 +46,16 @@ export const Navbar: React.FC = () => {
         <div className="flex justify-between h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Link to="/" className="flex items-center gap-2.5 group">
+            <Link to="/" className="flex items-center gap-2.5 group select-none">
               <img
-                src="/logo.png"
-                alt="HireJob Logo"
-                className="h-10 w-auto max-w-[140px] sm:max-w-[170px] object-contain group-hover:scale-105 transition-transform"
+                src="/logo-icon.png"
+                alt="HireJob Icon"
+                className="h-10 w-10 sm:h-11 sm:w-11 object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-300"
               />
+              <span className="text-2xl sm:text-[26px] font-black tracking-tight leading-none transition-colors">
+                <span className="text-gray-900 dark:text-white">Hire</span>
+                <span className="bg-gradient-to-b from-[#fa9d01] to-[#f95a03] bg-clip-text text-transparent">Job</span>
+              </span>
             </Link>
             <div className="hidden md:flex ml-10 space-x-6">
               <Link

@@ -24,7 +24,6 @@ public class JwtTokenProvider {
     private static final Logger logger = LoggerFactory.getLogger(JwtTokenProvider.class);
     public static final String SCOPE_USER = "user";
     public static final String SCOPE_ADMIN = "admin";
-    private static final String DEV_DEFAULT_PREFIX = "4a6f624d61726b6574";
 
     @Value("${app.jwt.secret:}")
     private String jwtSecret;
@@ -112,8 +111,8 @@ public class JwtTokenProvider {
                     .build()
                     .parseSignedClaims(authToken);
             return true;
-        } catch (SecurityException | MalformedJwtException | ExpiredJwtException |
-                 UnsupportedJwtException | IllegalArgumentException ex) {
+        } catch (SecurityException | MalformedJwtException | ExpiredJwtException | UnsupportedJwtException
+                | IllegalArgumentException ex) {
             logger.debug("Invalid JWT token: {}", ex.getMessage());
         }
         return false;

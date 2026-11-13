@@ -5,7 +5,6 @@ import com.hirejob.dto.response.AuthResponse;
 import com.hirejob.dto.response.UserResponse;
 import com.hirejob.exception.BadRequestException;
 import com.hirejob.exception.ResourceNotFoundException;
-import com.hirejob.exception.UnauthorizedException;
 import com.hirejob.model.entity.User;
 import com.hirejob.model.enums.Role;
 import com.hirejob.repository.UserRepository;
@@ -95,7 +94,8 @@ public class AuthService {
         String code = generateSecureOtp();
         otpStore.put(user.getEmail(), new OtpEntry(code, System.currentTimeMillis(), OTP_VALIDITY_MS));
         emailService.sendOtp(user.getEmail(), code, "Email Verification");
-        log.info("[HIREJOB OTP DISPATCH] Dynamic verification code for {}: [{}] (Valid for 5 minutes)", user.getEmail(), code);
+        log.info("[HIREJOB OTP DISPATCH] Dynamic verification code for {}: [{}] (Valid for 5 minutes)", user.getEmail(),
+                code);
 
         String token = tokenProvider.generateTokenFromUserId(user.getId());
 
@@ -108,8 +108,7 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
         String email = normalizeEmail(request.getEmail());
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(email, request.getPassword())
-        );
+                new UsernamePasswordAuthenticationToken(email, request.getPassword()));
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new BadRequestException("User not found"));
@@ -122,7 +121,8 @@ public class AuthService {
             if ("SMS_OTP".equalsIgnoreCase(user.getTwoFactorType()) && user.getPhone() != null) {
                 smsService.sendOtp(user.getPhone(), tempOtp);
             }
-            log.info("[HIREJOB 2FA DISPATCH] Dynamic 2FA OTP for {}: [{}] (Method: {})", user.getEmail(), tempOtp, user.getTwoFactorType());
+            log.info("[HIREJOB 2FA DISPATCH] Dynamic 2FA OTP for {}: [{}] (Method: {})", user.getEmail(), tempOtp,
+                    user.getTwoFactorType());
 
             return AuthResponse.builder()
                     .twoFactorRequired(true)
@@ -147,7 +147,8 @@ public class AuthService {
         String googleId = request.getGoogleId();
 
         // If credential is provided and verifier is configured, verify directly
-        if (request.getCredential() != null && !request.getCredential().isBlank() && googleTokenVerifier.isConfigured()) {
+        if (request.getCredential() != null && !request.getCredential().isBlank()
+                && googleTokenVerifier.isConfigured()) {
             GoogleTokenVerifier.GoogleUser gu = googleTokenVerifier.verify(request.getCredential());
             email = normalizeEmail(gu.email());
             fullName = gu.name() != null && !gu.name().isBlank() ? gu.name() : fullName;
@@ -281,8 +282,7 @@ public class AuthService {
         return Map.of(
                 "email", normalized,
                 "expiresInSeconds", 300,
-                "message", "Verification code sent to " + normalized
-        );
+                "message", "Verification code sent to " + normalized);
     }
 
     public Map<String, Object> getOtpStatus(String email) {
@@ -293,8 +293,7 @@ public class AuthService {
         }
         return Map.of(
                 "valid", true,
-                "remainingSeconds", entry.getRemainingSeconds()
-        );
+                "remainingSeconds", entry.getRemainingSeconds());
     }
 
     public UserResponse mapToUserResponse(User user) {

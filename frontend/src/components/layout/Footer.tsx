@@ -11,12 +11,16 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand info */}
           <div className="space-y-4">
-            <Link to="/" className="inline-block group">
+            <Link to="/" className="inline-flex items-center gap-2.5 group select-none">
               <img
-                src="/logo.png"
-                alt="HireJob Logo"
-                className="h-10 w-auto max-w-[160px] object-contain group-hover:scale-105 transition-transform"
+                src="/logo-icon.png"
+                alt="HireJob Icon"
+                className="h-9 w-9 object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-300"
               />
+              <span className="text-2xl font-black tracking-tight leading-none transition-colors">
+                <span className="text-gray-900 dark:text-white">Hire</span>
+                <span className="bg-gradient-to-b from-[#fa9d01] to-[#f95a03] bg-clip-text text-transparent">Job</span>
+              </span>
             </Link>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               The premier marketplace connecting service providers, temporary gigs, and permanent job opportunities with clients across Sri Lanka.
