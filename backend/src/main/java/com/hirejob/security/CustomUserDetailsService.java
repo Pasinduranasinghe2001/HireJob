@@ -17,9 +17,20 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     @Transactional
-    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
+    public UserDetails loadUserByUsername(String identifier) throws UsernameNotFoundException {
+        if (identifier == null || identifier.trim().isEmpty()) {
+            throw new UsernameNotFoundException("Identifier cannot be empty");
+        }
+        String trimmed = identifier.trim();
+        User user;
+        if (trimmed.contains("@")) {
+            user = userRepository.findByEmail(trimmed.toLowerCase(java.util.Locale.ROOT))
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + trimmed));
+        } else {
+            user = userRepository.findByPhone(trimmed)
+                    .or(() -> userRepository.findByEmail(trimmed.toLowerCase(java.util.Locale.ROOT)))
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found with phone or email: " + trimmed));
+        }
 
         return CustomUserDetails.create(user);
     }

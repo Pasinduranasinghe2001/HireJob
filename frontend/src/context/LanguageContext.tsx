@@ -17,8 +17,8 @@ const translations: Record<Language, Record<string, string>> = {
     'nav.postJob': 'Post a Service',
     'nav.profile': 'Profile',
     'nav.admin': 'Admin Portal',
-    'nav.signIn': 'Sign In',
-    'nav.getStarted': 'Get Started',
+    'nav.signIn': 'Log In',
+    'nav.getStarted': 'Register',
     'nav.logout': 'Log Out',
 
     // Hero

@@ -11,9 +11,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
 
+    Optional<User> findByPhone(String phone);
+
     Optional<User> findByGoogleId(String googleId);
 
     boolean existsByEmail(String email);
+
+    boolean existsByPhone(String phone);
 
     long countByRole(com.hirejob.model.enums.Role role);
 }

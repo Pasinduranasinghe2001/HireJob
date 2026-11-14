@@ -34,7 +34,7 @@ public class AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     private static final SecureRandom RANDOM = new SecureRandom();
-    private static final long OTP_VALIDITY_MS = 300_000; // 5 minutes
+    private static final long OTP_VALIDITY_MS = 120_000; // 2 minutes (120 seconds)
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -94,7 +94,7 @@ public class AuthService {
         String code = generateSecureOtp();
         otpStore.put(user.getEmail(), new OtpEntry(code, System.currentTimeMillis(), OTP_VALIDITY_MS));
         emailService.sendOtp(user.getEmail(), code, "Email Verification");
-        log.info("[HIREJOB OTP DISPATCH] Dynamic verification code for {}: [{}] (Valid for 5 minutes)", user.getEmail(),
+        log.info("[HIREJOB OTP DISPATCH] Dynamic verification code for {}: [{}] (Valid for 2 minutes)", user.getEmail(),
                 code);
 
         String token = tokenProvider.generateTokenFromUserId(user.getId());
@@ -106,12 +106,19 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        String email = normalizeEmail(request.getEmail());
+        String identifier = request.getEmail() != null ? request.getEmail().trim() : "";
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(email, request.getPassword()));
+                new UsernamePasswordAuthenticationToken(identifier, request.getPassword()));
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new BadRequestException("User not found"));
+        User user;
+        if (identifier.contains("@")) {
+            user = userRepository.findByEmail(identifier.toLowerCase(Locale.ROOT))
+                    .orElseThrow(() -> new BadRequestException("User not found"));
+        } else {
+            user = userRepository.findByPhone(identifier)
+                    .or(() -> userRepository.findByEmail(identifier.toLowerCase(Locale.ROOT)))
+                    .orElseThrow(() -> new BadRequestException("User not found"));
+        }
 
         // If 2FA is enabled, require 2FA challenge with dynamic code
         if (Boolean.TRUE.equals(user.getTwoFactorEnabled())) {
@@ -277,11 +284,11 @@ public class AuthService {
         OtpEntry entry = new OtpEntry(code, System.currentTimeMillis(), OTP_VALIDITY_MS);
         otpStore.put(normalized, entry);
         emailService.sendOtp(normalized, code, "Verification Code");
-        log.info("[HIREJOB EMAIL DISPATCH] Sent verification code to {}: [{}] (Valid for 5 minutes)", normalized, code);
+        log.info("[HIREJOB EMAIL DISPATCH] Sent verification code to {}: [{}] (Valid for 2 minutes)", normalized, code);
 
         return Map.of(
                 "email", normalized,
-                "expiresInSeconds", 300,
+                "expiresInSeconds", 120,
                 "message", "Verification code sent to " + normalized);
     }
 

@@ -29,7 +29,7 @@ export const RegisterPage: React.FC = () => {
   // Email verification modal
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [verifyCode, setVerifyCode] = useState('');
-  const [timeLeft, setTimeLeft] = useState(300);
+  const [timeLeft, setTimeLeft] = useState(120); // 2 minutes countdown
   const [resending, setResending] = useState(false);
 
   // Timer countdown
@@ -47,13 +47,26 @@ export const RegisterPage: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
+    const trimmedEmail = email.trim().toLowerCase();
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setError('Please enter a valid email address (e.g. name@gmail.com)');
+      toast.error('Invalid email format. Please check your email.');
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+
+    if (!/(?=.*[A-Za-z])(?=.*\d)/.test(password)) {
+      setError('Password must contain at least one letter and one number');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
       return;
     }
 
@@ -61,14 +74,14 @@ export const RegisterPage: React.FC = () => {
 
     try {
       await register({
-        fullName,
-        email,
+        fullName: fullName.trim(),
+        email: trimmedEmail,
         password,
-        phone,
+        phone: phone.trim(),
         role,
       });
 
-      setTimeLeft(300);
+      setTimeLeft(120);
       toast.success('Registration successful! Verification code sent to your email.');
       setShowVerifyModal(true);
     } catch (err: any) {
@@ -131,7 +144,7 @@ export const RegisterPage: React.FC = () => {
       await api.post('/auth/send-verification-email', null, {
         params: { email },
       });
-      setTimeLeft(300);
+      setTimeLeft(120);
       setVerifyCode('');
       toast.success(`A new verification code has been dispatched to ${email}`);
     } catch (err: any) {

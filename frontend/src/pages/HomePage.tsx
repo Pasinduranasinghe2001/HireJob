@@ -55,7 +55,7 @@ export const HomePage: React.FC = () => {
   return (
     <div className="space-y-16 pb-16">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-b from-blue-50/70 dark:from-gray-900 via-indigo-50/20 dark:via-gray-850 to-white dark:to-gray-900 pt-16 pb-20 px-4 sm:px-6 lg:px-8 border-b border-gray-100 dark:border-gray-800 transition-colors overflow-hidden">
+      <section className="relative bg-gradient-to-b from-blue-50/70 dark:from-gray-900 via-indigo-50/20 dark:via-gray-850 to-white dark:to-gray-900 pt-16 pb-20 px-4 sm:px-6 lg:px-8 border-b border-gray-100 dark:border-gray-800 transition-colors z-20">
         {/* Interactive Hanging Ceiling Lamp (Pull Cord to toggle Dark/Light) */}
         <div className="absolute top-0 right-4 sm:right-12 md:right-20">
           <HangingLamp />

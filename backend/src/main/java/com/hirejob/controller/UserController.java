@@ -1,10 +1,12 @@
 package com.hirejob.controller;
 
+import com.hirejob.dto.request.ChangePasswordRequest;
 import com.hirejob.dto.response.ApiResponse;
 import com.hirejob.dto.response.UserResponse;
 import com.hirejob.security.CustomUserDetails;
 import com.hirejob.service.ReviewService;
 import com.hirejob.service.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -37,6 +39,14 @@ public class UserController {
                 updates.get("phone")
         );
         return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", user));
+    }
+
+    @PutMapping("/me/password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        userService.changePassword(userDetails.getId(), request);
+        return ResponseEntity.ok(ApiResponse.success("Password changed successfully", null));
     }
 
     @GetMapping("/{id}/profile")

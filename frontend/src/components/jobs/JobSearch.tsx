@@ -157,12 +157,7 @@ export const JobSearch: React.FC<JobSearchProps> = ({
 
         {/* Scrollable Services List Dropdown */}
         {showServiceDropdown && (
-          <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 max-h-72 overflow-y-auto z-40 p-2 divide-y divide-gray-100 dark:divide-gray-700/50">
-            <div className="px-3 py-1.5 text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center justify-between">
-              <span>Scroll & select or type service</span>
-              <span>{filteredServices.length} found</span>
-            </div>
-
+          <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl ring-1 ring-black/10 dark:ring-white/10 border border-gray-100 dark:border-gray-700 max-h-80 overflow-y-auto z-50 p-2 divide-y divide-gray-100 dark:divide-gray-700/50">
             <div className="pt-1 space-y-0.5">
               {filteredServices.length === 0 ? (
                 <div className="p-3 text-center text-xs text-gray-500 dark:text-gray-400">
@@ -236,7 +231,7 @@ export const JobSearch: React.FC<JobSearchProps> = ({
 
         {/* Scrollable Locations List Dropdown */}
         {showLocationDropdown && (
-          <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 max-h-72 overflow-y-auto z-40 p-2 divide-y divide-gray-100 dark:divide-gray-700/50">
+          <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl ring-1 ring-black/10 dark:ring-white/10 border border-gray-100 dark:border-gray-700 max-h-80 overflow-y-auto z-50 p-2 divide-y divide-gray-100 dark:divide-gray-700/50">
             <div className="px-3 py-1.5 text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center justify-between">
               <span>Select District or City</span>
               <span>{filteredLocations.length} locations</span>

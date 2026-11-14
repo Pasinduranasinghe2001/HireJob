@@ -12,10 +12,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class LoginRequest {
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email format")
+    @NotBlank(message = "Email or phone number is required")
     @Size(max = 150)
-    private String email;
+    private String email; // Accepts user email or registered mobile phone number
 
     @NotBlank(message = "Password is required")
     @Size(max = 100)

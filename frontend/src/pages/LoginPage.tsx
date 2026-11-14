@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { FiMail, FiLock, FiBriefcase, FiAlertCircle, FiShield, FiKey, FiClock, FiRefreshCw } from 'react-icons/fi';
+import { FiMail, FiLock, FiBriefcase, FiAlertCircle, FiShield, FiKey, FiClock, FiRefreshCw, FiEye, FiEyeOff } from 'react-icons/fi';
 import { FcGoogle } from 'react-icons/fc';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -17,6 +17,7 @@ export const LoginPage: React.FC = () => {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +28,7 @@ export const LoginPage: React.FC = () => {
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [twoFactorType, setTwoFactorType] = useState('SMS_OTP');
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes countdown
+  const [timeLeft, setTimeLeft] = useState(120); // 2 minutes countdown
   const [resending, setResending] = useState(false);
 
   // 2FA Timer countdown effect
@@ -47,10 +48,10 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      const res = await login({ email, password });
+      const res = await login({ email: email.trim(), password });
       if (res.twoFactorRequired) {
         setTwoFactorType(res.twoFactorType || 'SMS_OTP');
-        setTimeLeft(300);
+        setTimeLeft(120);
         setShow2FAModal(true);
         toast('Two-Factor Authentication code dispatched to your Gmail / phone.', { icon: '🔐' });
         return;
@@ -81,7 +82,7 @@ export const LoginPage: React.FC = () => {
       if (res.twoFactorRequired) {
         setEmail(account.email);
         setTwoFactorType(res.twoFactorType || 'PASSKEY');
-        setTimeLeft(300);
+        setTimeLeft(120);
         setShow2FAModal(true);
         return;
       }
@@ -127,7 +128,7 @@ export const LoginPage: React.FC = () => {
       await api.post('/auth/send-verification-email', null, {
         params: { email },
       });
-      setTimeLeft(300);
+      setTimeLeft(120);
       setOtpCode('');
       toast.success(`A new verification code has been sent to ${email}`);
     } catch (err: any) {
@@ -199,38 +200,51 @@ export const LoginPage: React.FC = () => {
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
             <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
-              Email Address
+              Email Address or Mobile Phone Number
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                 <FiMail />
               </div>
               <input
-                type="email"
+                type="text"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@gmail.com"
+                placeholder="you@gmail.com or 0771234567"
                 className="w-full pl-10 pr-3 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
               />
             </div>
+            <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+              Enter your registered Gmail/email or Sri Lankan mobile number
+            </p>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
-              Password
-            </label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                Password
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-medium cursor-pointer"
+              >
+                {showPassword ? <FiEyeOff className="w-3.5 h-3.5" /> : <FiEye className="w-3.5 h-3.5" />}
+                <span>{showPassword ? 'Hide' : 'Show'}</span>
+              </button>
+            </div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                 <FiLock />
               </div>
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-10 pr-3 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+                className="w-full pl-10 pr-10 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
               />
             </div>
           </div>
