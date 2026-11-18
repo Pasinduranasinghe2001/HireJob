@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT:8081}
+  port: ${PORT:${SERVER_PORT:8081}}
   # Never leak internals (stack traces / exception messages) to clients
   error:
     include-message: never
@@ -12,7 +12,7 @@ server:
         http-only: true
         secure: ${COOKIE_SECURE:false}
         same-site: strict
-  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:framework}
 
 spring:
   # Local secrets live in backend/.env (git-ignored). See backend/.env.example
@@ -68,7 +68,7 @@ app:
     admin-expiration-ms: ${JWT_ADMIN_EXPIRATION_MS:1800000} # 30 minutes for admin sessions
   security:
     cookie-secure: ${COOKIE_SECURE:false}   # set true when served over HTTPS
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,https://*.vercel.app}
     login-otp-required: ${LOGIN_OTP_REQUIRED:true}
   admin:
     email: ${ADMIN_EMAIL:}

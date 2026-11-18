@@ -38,7 +38,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        String jwt = cookieService.readToken(request);
+        String jwt = resolveJwtFromRequest(request);
         if (jwt != null) {
             try {
                 Claims claims = tokenProvider.parse(jwt);
@@ -52,7 +52,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authentication);
                         request.setAttribute("hj.jti", claims.getId());
-                        request.setAttribute("hj.exp", claims.getExpiration().getTime());
+                        if (claims.getExpiration() != null) {
+                            request.setAttribute("hj.exp", claims.getExpiration().getTime());
+                        }
                     } else {
                         cookieService.clearSessionCookie(response);
                     }
@@ -65,20 +67,38 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+    private String resolveJwtFromRequest(HttpServletRequest request) {
+        String cookieToken = cookieService.readToken(request);
+        if (cookieToken != null && !cookieToken.isBlank()) {
+            return cookieToken;
+        }
+        String bearer = request.getHeader("Authorization");
+        if (bearer != null && bearer.startsWith("Bearer ")) {
+            String headerToken = bearer.substring(7).trim();
+            if (!headerToken.isBlank()) {
+                return headerToken;
+            }
+        }
+        return null;
+    }
+
     private boolean isTokenAcceptable(Claims claims, User user, HttpServletRequest request) {
         int tokenVersion = claims.get("tv", Integer.class) == null ? 0 : claims.get("tv", Integer.class);
         int userVersion = user.getTokenVersion() == null ? 0 : user.getTokenVersion();
         if (tokenVersion != userVersion) return false;
 
         String fp = claims.get("fp", String.class);
-        if (!Objects.equals(fp, JwtTokenProvider.fingerprint(request.getHeader("User-Agent")))) {
+        if (fp != null && !Objects.equals(fp, JwtTokenProvider.fingerprint(request.getHeader("User-Agent")))) {
             log.warn("[SECURITY] Session token presented from a different browser fingerprint for user {} - rejected", user.getId());
             return false;
         }
 
         String scope = claims.get("scope", String.class);
-        boolean isAdmin = user.getRole() == Role.ROLE_ADMIN;
-        // Admin accounts are only valid with an admin-portal token, and admin tokens only for admins.
-        return isAdmin == JwtTokenProvider.SCOPE_ADMIN.equals(scope);
+        if (scope != null) {
+            boolean isAdmin = user.getRole() == Role.ROLE_ADMIN;
+            // Admin accounts are only valid with an admin-portal token, and admin tokens only for admins.
+            return isAdmin == JwtTokenProvider.SCOPE_ADMIN.equals(scope);
+        }
+        return true;
     }
 }

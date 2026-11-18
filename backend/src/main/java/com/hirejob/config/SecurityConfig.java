@@ -107,6 +107,7 @@ public class SecurityConfig {
         http
                 .cors(cors -> {})
                 .csrf(csrf -> csrf
+                        .ignoringRequestMatchers("/api/**")
                         .csrfTokenRepository(csrfRepo)
                         .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()))
                 .exceptionHandling(exception -> exception
@@ -126,7 +127,7 @@ public class SecurityConfig {
                         .addHeaderWriter(new StaticHeadersWriter("Permissions-Policy",
                                 "camera=(), microphone=(), geolocation=(self), payment=()"))
                         .addHeaderWriter(new StaticHeadersWriter("Cross-Origin-Opener-Policy", "same-origin-allow-popups"))
-                        .addHeaderWriter(new StaticHeadersWriter("Cross-Origin-Resource-Policy", "same-site")))
+                        .addHeaderWriter(new StaticHeadersWriter("Cross-Origin-Resource-Policy", "cross-origin")))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")

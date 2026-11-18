@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { resolveMediaUrl } from '../../services/api';
 
 interface ImageCarouselProps {
   images?: string[] | null;
@@ -80,7 +81,7 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
             }`}
           >
             <img
-              src={imgSrc}
+              src={resolveMediaUrl(imgSrc)}
               alt={`${alt} ${idx + 1}`}
               className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
               loading="lazy"

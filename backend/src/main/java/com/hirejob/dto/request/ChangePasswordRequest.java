@@ -23,3 +23,4 @@ public class ChangePasswordRequest {
     @NotBlank(message = "Confirm new password is required")
     private String confirmPassword;
 }
+
