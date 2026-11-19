@@ -5,6 +5,7 @@ import com.hirejob.dto.response.ApiResponse;
 import com.hirejob.dto.response.AuthResponse;
 import com.hirejob.dto.response.UserResponse;
 import com.hirejob.security.CustomUserDetails;
+import com.hirejob.security.GoogleTokenVerifier;
 import com.hirejob.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,22 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final GoogleTokenVerifier googleTokenVerifier;
+
+    /** Public: lets the frontend render the official Google button with the configured OAuth client id. */
+    @GetMapping("/google/config")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> googleConfig() {
+        String clientId = googleTokenVerifier.getClientId();
+        return ResponseEntity.ok(ApiResponse.success(Map.of(
+                "enabled", clientId != null,
+                "clientId", clientId == null ? "" : clientId)));
+    }
+
+    @PostMapping("/register/send-otp")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> sendRegistrationOtp(@Valid @RequestBody RegisterRequest request) {
+        Map<String, Object> result = authService.sendRegistrationOtp(request);
+        return ResponseEntity.ok(ApiResponse.success("Verification code sent to your email", result));
+    }
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request) {
@@ -33,6 +50,30 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse authResponse = authService.login(request);
         return ResponseEntity.ok(ApiResponse.success("Login successful", authResponse));
+    }
+
+    @PostMapping("/otp-login/send")
+    public ResponseEntity<ApiResponse<AuthResponse>> sendOtpLoginCode(@Valid @RequestBody OtpRequests.Identifier request) {
+        AuthResponse result = authService.sendOtpLoginCode(request);
+        return ResponseEntity.ok(ApiResponse.success("Verification code sent", result));
+    }
+
+    @PostMapping("/otp-login/verify")
+    public ResponseEntity<ApiResponse<AuthResponse>> verifyOtpLogin(@Valid @RequestBody OtpRequests.VerifyCode request) {
+        AuthResponse authResponse = authService.verifyOtpLogin(request);
+        return ResponseEntity.ok(ApiResponse.success("Login successful", authResponse));
+    }
+
+    @PostMapping("/forgot-password/send")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> sendForgotPasswordCode(@Valid @RequestBody OtpRequests.Identifier request) {
+        Map<String, Object> result = authService.sendForgotPasswordCode(request);
+        return ResponseEntity.ok(ApiResponse.success("Reset code sent", result));
+    }
+
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody OtpRequests.ResetPassword request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.success("Password reset successful! You can now log in.", null));
     }
 
     @PostMapping("/google")

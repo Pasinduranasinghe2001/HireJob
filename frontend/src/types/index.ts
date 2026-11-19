@@ -79,6 +79,13 @@ export interface AuthResponse {
   twoFactorRequired?: boolean;
   twoFactorType?: string;
   tempToken?: string;
+  authenticated?: boolean;
+  verificationRequired?: boolean;
+  purpose?: string;
+  maskedEmail?: string;
+  expiresInSeconds?: number;
+  emailDelivered?: boolean;
+  smsDelivered?: boolean;
 }
 
 export interface ApiResponse<T> {
@@ -103,6 +110,7 @@ export interface RegisterData {
   password: string;
   phone: string;
   role: 'ROLE_POSTER' | 'ROLE_CLIENT';
+  otpCode?: string;
 }
 
 export interface LoginData {

@@ -1,6 +1,15 @@
 import api from './api';
 import type { AuthResponse, ApiResponse, LoginData, RegisterData, User } from '../types';
 
+export interface OtpDispatchResult {
+  email?: string;
+  maskedEmail?: string;
+  expiresInSeconds?: number;
+  emailDelivered?: boolean;
+  smsDelivered?: boolean;
+  message?: string;
+}
+
 export const authService = {
   async login(data: LoginData): Promise<AuthResponse> {
     const response = await api.post<ApiResponse<AuthResponse>>('/auth/login', data);
@@ -12,8 +21,37 @@ export const authService = {
     return authData;
   },
 
-  async loginWithGoogle(data: { email: string; fullName: string; googleId?: string; avatarUrl?: string }): Promise<AuthResponse> {
-    const response = await api.post<ApiResponse<AuthResponse>>('/auth/google', data);
+  async sendOtpLoginCode(identifier: string): Promise<AuthResponse> {
+    const response = await api.post<ApiResponse<AuthResponse>>('/auth/otp-login/send', { identifier });
+    return response.data.data;
+  },
+
+  async verifyOtpLogin(identifier: string, code: string): Promise<AuthResponse> {
+    const response = await api.post<ApiResponse<AuthResponse>>('/auth/otp-login/verify', { identifier, code });
+    const authData = response.data.data;
+    if (authData.token) {
+      localStorage.setItem('token', authData.token);
+      localStorage.setItem('user', JSON.stringify(authData.user));
+    }
+    return authData;
+  },
+
+  async sendForgotPasswordCode(identifier: string): Promise<OtpDispatchResult> {
+    const response = await api.post<ApiResponse<OtpDispatchResult>>('/auth/forgot-password/send', { identifier });
+    return response.data.data;
+  },
+
+  async resetPassword(identifier: string, code: string, newPassword: string): Promise<void> {
+    await api.post('/auth/forgot-password/reset', { identifier, code, newPassword });
+  },
+
+  async sendRegistrationOtp(data: RegisterData): Promise<OtpDispatchResult> {
+    const response = await api.post<ApiResponse<OtpDispatchResult>>('/auth/register/send-otp', data);
+    return response.data.data;
+  },
+
+  async loginWithGoogle(credential: string): Promise<AuthResponse> {
+    const response = await api.post<ApiResponse<AuthResponse>>('/auth/google', { credential });
     const authData = response.data.data;
     if (authData.token) {
       localStorage.setItem('token', authData.token);

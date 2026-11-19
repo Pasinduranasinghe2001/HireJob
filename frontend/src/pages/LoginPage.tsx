@@ -2,65 +2,114 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { FiMail, FiLock, FiBriefcase, FiAlertCircle, FiShield, FiKey, FiClock, FiRefreshCw, FiEye, FiEyeOff } from 'react-icons/fi';
-import { FcGoogle } from 'react-icons/fc';
-import toast from 'react-hot-toast';
+import { authService } from '../services/auth.service';
 import api from '../services/api';
-import GoogleAccountChooserModal, { type GoogleSelectedAccount } from '../components/common/GoogleAccountChooserModal';
+import GoogleSignInButton from '../components/common/GoogleSignInButton';
+import {
+  extractApiError,
+  formatCountdown,
+  normalizeLkPhone,
+} from '../utils/authHelpers';
+import {
+  FiMail,
+  FiLock,
+  FiBriefcase,
+  FiAlertCircle,
+  FiShield,
+  FiKey,
+  FiClock,
+  FiRefreshCw,
+  FiEye,
+  FiEyeOff,
+  FiSmartphone,
+  FiCheckCircle,
+} from 'react-icons/fi';
+import toast from 'react-hot-toast';
+
+type LoginTab = 'password' | 'otp';
 
 export const LoginPage: React.FC = () => {
-  const { login, loginWithGoogle, verifyTwoFactor } = useAuth();
+  const { login, verifyOtpLogin, loginWithGoogle, verifyTwoFactor } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as any)?.from?.pathname || '/dashboard';
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [activeTab, setActiveTab] = useState<LoginTab>('password');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Google Account Chooser
-  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  // Password login state
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
-  // 2FA Challenge state
+  // Passwordless OTP login state (Daraz Phone/Email code flow)
+  const [otpInputMode, setOtpInputMode] = useState<'phone' | 'email'>('phone');
+  const [otpPhone, setOtpPhone] = useState('');
+  const [otpEmail, setOtpEmail] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [loginOtpCode, setLoginOtpCode] = useState('');
+  const [otpMaskedTarget, setOtpMaskedTarget] = useState('');
+  const [otpTimeLeft, setOtpTimeLeft] = useState(120);
+
+  // 2FA challenge modal state
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [otpCode, setOtpCode] = useState('');
-  const [twoFactorType, setTwoFactorType] = useState('SMS_OTP');
-  const [timeLeft, setTimeLeft] = useState(120); // 2 minutes countdown
+  const [twoFactorType, setTwoFactorType] = useState('EMAIL_OTP');
+  const [twoFactorEmail, setTwoFactorEmail] = useState('');
+  const [timeLeft, setTimeLeft] = useState(120);
   const [resending, setResending] = useState(false);
 
-  // 2FA Timer countdown effect
+  // Forgot password modal state
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotStep, setForgotStep] = useState<'request' | 'reset'>('request');
+  const [forgotIdentifier, setForgotIdentifier] = useState('');
+  const [forgotCode, setForgotCode] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
+  const [forgotShowPassword, setForgotShowPassword] = useState(false);
+  const [forgotMaskedEmail, setForgotMaskedEmail] = useState('');
+  const [forgotTimeLeft, setForgotTimeLeft] = useState(120);
+
+  // Countdown timers (120 seconds / 2 minutes)
   useEffect(() => {
     if (!show2FAModal || timeLeft <= 0) return;
-
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => Math.max(0, prev - 1));
-    }, 1000);
-
-    return () => clearInterval(interval);
+    const id = setInterval(() => setTimeLeft((p) => Math.max(0, p - 1)), 1000);
+    return () => clearInterval(id);
   }, [show2FAModal, timeLeft]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!otpSent || otpTimeLeft <= 0) return;
+    const id = setInterval(() => setOtpTimeLeft((p) => Math.max(0, p - 1)), 1000);
+    return () => clearInterval(id);
+  }, [otpSent, otpTimeLeft]);
+
+  useEffect(() => {
+    if (!showForgotModal || forgotStep !== 'reset' || forgotTimeLeft <= 0) return;
+    const id = setInterval(() => setForgotTimeLeft((p) => Math.max(0, p - 1)), 1000);
+    return () => clearInterval(id);
+  }, [showForgotModal, forgotStep, forgotTimeLeft]);
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
-
     try {
-      const res = await login({ email: email.trim(), password });
+      const res = await login({ email: identifier.trim(), password });
       if (res.twoFactorRequired) {
-        setTwoFactorType(res.twoFactorType || 'SMS_OTP');
+        setTwoFactorEmail(res.user?.email || identifier.trim());
+        setTwoFactorType(res.twoFactorType || 'EMAIL_OTP');
         setTimeLeft(120);
+        setOtpCode('');
         setShow2FAModal(true);
-        toast('Two-Factor Authentication code dispatched to your Gmail / phone.', { icon: '🔐' });
+        toast('Verification code sent to your email / phone.', { icon: '🔐' });
         return;
       }
-
       toast.success('Welcome back!');
       navigate(from, { replace: true });
     } catch (err: any) {
-      const msg = err.response?.data?.message || 'Login failed. Please check your credentials.';
+      const msg = extractApiError(err, 'Invalid phone/email or password.');
       setError(msg);
       toast.error(msg);
     } finally {
@@ -68,30 +117,79 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleSelectGoogleAccount = async (account: GoogleSelectedAccount) => {
+  const resolveOtpLoginIdentifier = (): string => {
+    return otpInputMode === 'phone' ? normalizeLkPhone(otpPhone) : otpEmail.trim().toLowerCase();
+  };
+
+  const handleSendOtpLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const target = resolveOtpLoginIdentifier();
+    if (!target) {
+      setError(otpInputMode === 'phone' ? 'Please enter your Sri Lankan mobile number' : 'Please enter your Gmail address');
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await authService.sendOtpLoginCode(target);
+      setOtpMaskedTarget(res.maskedEmail || target);
+      setOtpTimeLeft(res.expiresInSeconds || 120);
+      setLoginOtpCode('');
+      setOtpSent(true);
+      toast.success(`6-digit login code sent to ${res.maskedEmail || 'your inbox'}`);
+    } catch (err: any) {
+      const msg = extractApiError(err, 'Could not send login code. Check your phone/email or sign up.');
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtpLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginOtpCode.trim().length !== 6) {
+      setError('Please enter the 6-digit verification code');
+      return;
+    }
+    if (otpTimeLeft <= 0) {
+      setError('Code expired. Please click Resend Code.');
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      await verifyOtpLogin(resolveOtpLoginIdentifier(), loginOtpCode.trim());
+      toast.success('Welcome back!');
+      navigate(from, { replace: true });
+    } catch (err: any) {
+      const msg = extractApiError(err, 'Invalid or expired verification code.');
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleCredential = async (credential: string) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await loginWithGoogle({
-        email: account.email,
-        fullName: account.fullName,
-        googleId: account.googleId,
-        avatarUrl: account.avatarUrl || 'https://lh3.googleusercontent.com/a/default-user',
-      });
-
+      const res = await loginWithGoogle(credential);
       if (res.twoFactorRequired) {
-        setEmail(account.email);
-        setTwoFactorType(res.twoFactorType || 'PASSKEY');
+        setTwoFactorEmail(res.user?.email || '');
+        setTwoFactorType(res.twoFactorType || 'EMAIL_OTP');
         setTimeLeft(120);
+        setOtpCode('');
         setShow2FAModal(true);
         return;
       }
-
-      toast.success(`Signed in as ${account.fullName}!`);
+      toast.success(`Signed in as ${res.user?.fullName || 'Google user'}!`);
       navigate(from, { replace: true });
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Google sign in failed');
-      toast.error('Google authentication failed');
+      const msg = extractApiError(err, 'Google sign-in failed');
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -107,32 +205,29 @@ export const LoginPage: React.FC = () => {
       toast.error('Verification code has expired. Please click Resend Code.');
       return;
     }
-
     setLoading(true);
     try {
-      await verifyTwoFactor(email, otpCode.trim());
+      await verifyTwoFactor(twoFactorEmail, otpCode.trim());
       toast.success('Two-factor verification successful!');
       setShow2FAModal(false);
       navigate(from, { replace: true });
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Invalid 2FA code. Please check your OTP.');
+      toast.error(extractApiError(err, 'Invalid 2FA code.'));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResendOtp = async () => {
+  const handleResend2FAOtp = async () => {
     if (resending) return;
     setResending(true);
     try {
-      await api.post('/auth/send-verification-email', null, {
-        params: { email },
-      });
+      await api.post('/auth/send-verification-email', null, { params: { email: twoFactorEmail } });
       setTimeLeft(120);
       setOtpCode('');
-      toast.success(`A new verification code has been sent to ${email}`);
+      toast.success(`A new verification code has been sent to ${twoFactorEmail}`);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to resend code');
+      toast.error(extractApiError(err, 'Failed to resend code'));
     } finally {
       setResending(false);
     }
@@ -141,7 +236,7 @@ export const LoginPage: React.FC = () => {
   const handleVerifyPasskey = async () => {
     setLoading(true);
     try {
-      await verifyTwoFactor(email, 'passkey_verified');
+      await verifyTwoFactor(twoFactorEmail, 'passkey_verified');
       toast.success('Passkey / Biometric verified successfully!');
       setShow2FAModal(false);
       navigate(from, { replace: true });
@@ -152,23 +247,108 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const minutes = Math.floor(timeLeft / 60);
-  const seconds = ('0' + (timeLeft % 60)).slice(-2);
+  const openForgotPasswordModal = () => {
+    setForgotIdentifier(identifier.trim());
+    setForgotStep('request');
+    setForgotCode('');
+    setForgotNewPassword('');
+    setForgotConfirmPassword('');
+    setShowForgotModal(true);
+  };
+
+  const handleSendForgotCode = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!forgotIdentifier.trim()) {
+      toast.error('Please enter your email or phone number');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await authService.sendForgotPasswordCode(forgotIdentifier.trim());
+      setForgotMaskedEmail(res.maskedEmail || forgotIdentifier.trim());
+      setForgotTimeLeft(res.expiresInSeconds || 120);
+      setForgotCode('');
+      setForgotStep('reset');
+      toast.success(`Reset code sent to ${res.maskedEmail || 'your email'}`);
+    } catch (err: any) {
+      toast.error(extractApiError(err, 'Account not found'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (forgotCode.trim().length !== 6) {
+      toast.error('Please enter the 6-digit reset code');
+      return;
+    }
+    if (forgotTimeLeft <= 0) {
+      toast.error('Reset code has expired. Please request a new code.');
+      return;
+    }
+    if (forgotNewPassword.length < 8 || !/(?=.*[A-Za-z])(?=.*\d)/.test(forgotNewPassword)) {
+      toast.error('Password must be 8+ characters with at least one letter and one number');
+      return;
+    }
+    if (forgotNewPassword !== forgotConfirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+    setLoading(true);
+    try {
+      await authService.resetPassword(forgotIdentifier.trim(), forgotCode.trim(), forgotNewPassword);
+      toast.success('Password reset successful! Please sign in with your new password.');
+      setIdentifier(forgotIdentifier.trim());
+      setPassword('');
+      setActiveTab('password');
+      setShowForgotModal(false);
+    } catch (err: any) {
+      toast.error(extractApiError(err, 'Failed to reset password'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-6 bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-        <div className="text-center">
-          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white mx-auto shadow-md">
-            <FiBriefcase className="w-6 h-6" />
+    <div className="min-h-[82vh] flex items-center justify-center py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-6 bg-white dark:bg-gray-800 p-7 sm:p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+        {/* Top Mode Tabs (Inspired by Daraz: Password | Verification Code) */}
+        <div className="text-center space-y-4">
+          <div className="w-11 h-11 bg-blue-600 rounded-xl flex items-center justify-center text-white mx-auto shadow-md">
+            <FiBriefcase className="w-5 h-5" />
           </div>
-          <h2 className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">{t('nav.signIn')}</h2>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Or{' '}
-            <Link to="/register" className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">
-              {t('nav.getStarted')}
-            </Link>
-          </p>
+
+          <div className="grid grid-cols-2 border-b border-gray-200 dark:border-gray-700">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('password');
+                setError(null);
+              }}
+              className={`pb-3 text-sm font-bold transition border-b-2 cursor-pointer ${
+                activeTab === 'password'
+                  ? 'border-blue-600 text-gray-900 dark:text-white'
+                  : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              }`}
+            >
+              Password
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('otp');
+                setError(null);
+              }}
+              className={`pb-3 text-sm font-bold transition border-b-2 cursor-pointer ${
+                activeTab === 'otp'
+                  ? 'border-blue-600 text-gray-900 dark:text-white'
+                  : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              }`}
+            >
+              Phone / Email Code
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -178,94 +358,339 @@ export const LoginPage: React.FC = () => {
           </div>
         )}
 
-        {/* Google Sign-in button with Account Picker */}
-        <button
-          type="button"
-          onClick={() => setShowGoogleModal(true)}
-          disabled={loading}
-          className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-700/60 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-xs transition cursor-pointer"
-        >
-          <FcGoogle className="w-5 h-5" />
-          <span>{t('auth.google')} (Choose Account)</span>
-        </button>
+        {/* TAB 1: Password Login */}
+        {activeTab === 'password' ? (
+          <form className="space-y-4" onSubmit={handlePasswordSubmit}>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                Phone Number or Email
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                  <FiMail />
+                </div>
+                <input
+                  type="text"
+                  required
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="Please enter your Phone or Email"
+                  className="w-full pl-10 pr-3 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={openForgotPasswordModal}
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium cursor-pointer"
+                >
+                  Forgot password?
+                </button>
+              </div>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                  <FiLock />
+                </div>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Please enter your password"
+                  className="w-full pl-10 pr-10 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+                >
+                  {showPassword ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 px-4 rounded-xl shadow-md text-sm font-bold tracking-wide text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition disabled:opacity-50 cursor-pointer"
+            >
+              {loading ? 'Signing in...' : 'LOGIN'}
+            </button>
+          </form>
+        ) : (
+          /* TAB 2: Passwordless OTP Login (Phone LK +94 or Email Code) */
+          <div className="space-y-4">
+            {!otpSent ? (
+              <form className="space-y-4" onSubmit={handleSendOtpLogin}>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    {otpInputMode === 'phone' ? 'Sri Lanka Mobile Number' : 'Registered Email'}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setOtpInputMode(otpInputMode === 'phone' ? 'email' : 'phone')}
+                    className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                  >
+                    {otpInputMode === 'phone' ? 'Use Email instead' : 'Use Phone (+94)'}
+                  </button>
+                </div>
+
+                {otpInputMode === 'phone' ? (
+                  <div className="flex gap-2">
+                    <div className="px-3 py-2.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-200 shrink-0 select-none">
+                      🇱🇰 +94
+                    </div>
+                    <div className="relative flex-1">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                        <FiSmartphone />
+                      </div>
+                      <input
+                        type="tel"
+                        required
+                        value={otpPhone}
+                        onChange={(e) => setOtpPhone(e.target.value)}
+                        placeholder="77 123 4567"
+                        className="w-full pl-9 pr-3 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                      <FiMail />
+                    </div>
+                    <input
+                      type="email"
+                      required
+                      value={otpEmail}
+                      onChange={(e) => setOtpEmail(e.target.value)}
+                      placeholder="you@gmail.com"
+                      className="w-full pl-10 pr-3 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+                    />
+                  </div>
+                )}
+
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                  We will send a 6-digit login code to your account&apos;s verified Gmail (and SMS when enabled).
+                </p>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 px-4 rounded-xl shadow-md text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <FiSmartphone className="w-4 h-4" />
+                  <span>{loading ? 'Sending code...' : 'Send Verification Code'}</span>
+                </button>
+              </form>
+            ) : (
+              <form className="space-y-4" onSubmit={handleVerifyOtpLogin}>
+                <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900 text-xs text-blue-800 dark:text-blue-200 flex items-center justify-between">
+                  <span>
+                    Code sent to <strong>{otpMaskedTarget}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOtpSent(false);
+                      setError(null);
+                    }}
+                    className="font-semibold underline cursor-pointer ml-2 shrink-0"
+                  >
+                    Change
+                  </button>
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={loginOtpCode}
+                    onChange={(e) => setLoginOtpCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Enter 6-digit code"
+                    className="w-full text-center tracking-widest text-2xl font-mono py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+
+                  <div className="mt-2.5 flex items-center justify-between text-xs px-1">
+                    <span
+                      className={`flex items-center gap-1 font-semibold ${
+                        otpTimeLeft < 30 ? 'text-rose-500 animate-pulse' : 'text-amber-600 dark:text-amber-400'
+                      }`}
+                    >
+                      <FiClock className="w-3.5 h-3.5" />
+                      <span>{otpTimeLeft > 0 ? `Expires in: ${formatCountdown(otpTimeLeft)}` : 'Code expired'}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleSendOtpLogin()}
+                      disabled={loading || otpTimeLeft > 90}
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <FiRefreshCw className="w-3 h-3" />
+                      <span>{otpTimeLeft > 90 ? `Wait ${otpTimeLeft - 90}s` : 'Resend Code'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || otpTimeLeft <= 0 || loginOtpCode.length !== 6}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-md transition disabled:opacity-50 cursor-pointer"
+                >
+                  {loading ? 'Verifying...' : 'Verify & Log In'}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+          Don&apos;t have an account?{' '}
+          <Link to="/register" className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+            Sign up
+          </Link>
+        </p>
 
         <div className="relative flex py-1 items-center">
-          <div className="grow border-t border-gray-200 dark:border-gray-700"></div>
+          <div className="grow border-t border-gray-200 dark:border-gray-700" />
           <span className="shrink mx-4 text-xs text-gray-400 uppercase font-semibold">
-            {t('auth.orEmail')}
+            Or, login with
           </span>
-          <div className="grow border-t border-gray-200 dark:border-gray-700"></div>
+          <div className="grow border-t border-gray-200 dark:border-gray-700" />
         </div>
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
-              Email Address or Mobile Phone Number
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                <FiMail />
-              </div>
-              <input
-                type="text"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@gmail.com or 0771234567"
-                className="w-full pl-10 pr-3 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
-              />
-            </div>
-            <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-              Enter your registered Gmail/email or Sri Lankan mobile number
-            </p>
-          </div>
-
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                Password
-              </label>
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-medium cursor-pointer"
-              >
-                {showPassword ? <FiEyeOff className="w-3.5 h-3.5" /> : <FiEye className="w-3.5 h-3.5" />}
-                <span>{showPassword ? 'Hide' : 'Show'}</span>
-              </button>
-            </div>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                <FiLock />
-              </div>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full pl-10 pr-10 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 px-4 border border-transparent rounded-xl shadow-md text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition disabled:opacity-50 cursor-pointer"
-          >
-            {loading ? 'Signing in...' : t('nav.signIn')}
-          </button>
-        </form>
+        {/* Official Google Sign-In using real browser Gmail accounts */}
+        <GoogleSignInButton onCredential={handleGoogleCredential} text="continue_with" disabled={loading} />
       </div>
 
-      {/* Google Account Chooser Modal */}
-      <GoogleAccountChooserModal
-        isOpen={showGoogleModal}
-        onClose={() => setShowGoogleModal(false)}
-        onSelectAccount={handleSelectGoogleAccount}
-        currentEmailHint={email}
-      />
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-5 shadow-2xl border border-gray-100 dark:border-gray-700">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                <FiKey className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Reset Password</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {forgotStep === 'request'
+                  ? 'Enter your registered email or phone number to receive a 6-digit reset code.'
+                  : `Enter the 6-digit code sent to ${forgotMaskedEmail} and set a strong new password.`}
+              </p>
+            </div>
+
+            {forgotStep === 'request' ? (
+              <form onSubmit={handleSendForgotCode} className="space-y-4">
+                <input
+                  type="text"
+                  required
+                  value={forgotIdentifier}
+                  onChange={(e) => setForgotIdentifier(e.target.value)}
+                  placeholder="Email or mobile phone number"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotModal(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-xs font-semibold text-gray-600 dark:text-gray-300 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition disabled:opacity-50 cursor-pointer"
+                  >
+                    {loading ? 'Sending...' : 'Send Reset Code'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleResetPasswordSubmit} className="space-y-3.5">
+                <div>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    required
+                    value={forgotCode}
+                    onChange={(e) => setForgotCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="6-digit reset code"
+                    className="w-full text-center tracking-widest text-xl font-mono py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                  <div className="mt-1.5 flex items-center justify-between text-xs px-1">
+                    <span className={forgotTimeLeft < 30 ? 'text-rose-500 font-semibold' : 'text-amber-600 dark:text-amber-400 font-semibold'}>
+                      {forgotTimeLeft > 0 ? `Expires in: ${formatCountdown(forgotTimeLeft)}` : 'Code expired'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleSendForgotCode()}
+                      disabled={loading || forgotTimeLeft > 90}
+                      className="text-blue-600 dark:text-blue-400 hover:underline font-semibold disabled:opacity-40 cursor-pointer"
+                    >
+                      Resend Code
+                    </button>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <input
+                    type={forgotShowPassword ? 'text' : 'password'}
+                    required
+                    value={forgotNewPassword}
+                    onChange={(e) => setForgotNewPassword(e.target.value)}
+                    placeholder="New password (8+ chars, letter & number)"
+                    className="w-full px-3.5 py-2.5 pr-10 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setForgotShowPassword(!forgotShowPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 cursor-pointer"
+                  >
+                    {forgotShowPassword ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                <input
+                  type={forgotShowPassword ? 'text' : 'password'}
+                  required
+                  value={forgotConfirmPassword}
+                  onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotModal(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-xs font-semibold text-gray-600 dark:text-gray-300 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading || forgotTimeLeft <= 0}
+                    className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <FiCheckCircle className="w-3.5 h-3.5" />
+                    <span>{loading ? 'Updating...' : 'Reset Password'}</span>
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 2FA Verification Modal with reducing valid time range and Resend option */}
       {show2FAModal && (
@@ -278,7 +703,8 @@ export const LoginPage: React.FC = () => {
             <div>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t('auth.2faTitle')}</h3>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                A verification code was dispatched to <strong className="text-gray-800 dark:text-gray-200">{email}</strong> via {twoFactorType === 'SMS_OTP' ? 'Mobile SMS' : 'Email (Gmail)'}
+                A verification code was dispatched to <strong className="text-gray-800 dark:text-gray-200">{twoFactorEmail}</strong> via{' '}
+                {twoFactorType === 'SMS_OTP' ? 'Mobile SMS / Email' : 'Email (Gmail)'}
               </p>
             </div>
 
@@ -286,6 +712,7 @@ export const LoginPage: React.FC = () => {
               <div>
                 <input
                   type="text"
+                  inputMode="numeric"
                   maxLength={6}
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
@@ -293,21 +720,19 @@ export const LoginPage: React.FC = () => {
                   className="w-full text-center tracking-widest text-2xl font-mono py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
                 />
 
-                {/* Reducing countdown timer indicator */}
                 <div className="mt-2.5 flex items-center justify-between text-xs px-1">
-                  <span className={`flex items-center gap-1 font-semibold ${
-                    timeLeft < 60 ? 'text-rose-500 animate-pulse' : 'text-amber-600 dark:text-amber-400'
-                  }`}>
+                  <span
+                    className={`flex items-center gap-1 font-semibold ${
+                      timeLeft < 30 ? 'text-rose-500 animate-pulse' : 'text-amber-600 dark:text-amber-400'
+                    }`}
+                  >
                     <FiClock className="w-3.5 h-3.5" />
-                    <span>
-                      {timeLeft > 0 ? `Code expires in: ${minutes}:${seconds}` : 'Code has expired'}
-                    </span>
+                    <span>{timeLeft > 0 ? `Code expires in: ${formatCountdown(timeLeft)}` : 'Code has expired'}</span>
                   </span>
 
-                  {/* Resend Code Button */}
                   <button
                     type="button"
-                    onClick={handleResendOtp}
+                    onClick={handleResend2FAOtp}
                     disabled={resending}
                     className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50"
                   >
@@ -338,7 +763,7 @@ export const LoginPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShow2FAModal(false)}
-                  className="w-full py-2 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  className="w-full py-2 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
                 >
                   Cancel
                 </button>

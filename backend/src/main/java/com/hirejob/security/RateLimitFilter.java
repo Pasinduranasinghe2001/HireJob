@@ -33,9 +33,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
     // Most specific prefixes first
     private static final Rule[] RULES = {
             new Rule("/api/auth/admin", 5),
+            new Rule("/api/auth/forgot-password", 5),
             new Rule("/api/auth/otp", 10),
             new Rule("/api/auth/login", 10),
-            new Rule("/api/auth/register", 5),
+            new Rule("/api/auth/register", 8),
             new Rule("/api/auth/google", 10),
             new Rule("/api/auth", 60),
             new Rule("/api/", 300),

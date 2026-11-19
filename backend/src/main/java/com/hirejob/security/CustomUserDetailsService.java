@@ -27,7 +27,10 @@ public class CustomUserDetailsService implements UserDetailsService {
             user = userRepository.findByEmail(trimmed.toLowerCase(java.util.Locale.ROOT))
                     .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + trimmed));
         } else {
-            user = userRepository.findByPhone(trimmed)
+            var candidates = PhoneNormalizer.candidates(trimmed);
+            user = (candidates.isEmpty()
+                    ? java.util.Optional.<User>empty()
+                    : userRepository.findFirstByPhoneIn(candidates))
                     .or(() -> userRepository.findByEmail(trimmed.toLowerCase(java.util.Locale.ROOT)))
                     .orElseThrow(() -> new UsernameNotFoundException("User not found with phone or email: " + trimmed));
         }

@@ -56,14 +56,14 @@ public class EmailService {
                   <div style="background:#f8fafc;border-radius:12px;padding:20px;text-align:center;">
                     <p style="color:#374151;font-size:14px;margin:0 0 12px 0;">Your one-time verification code is:</p>
                     <div style="font-size:32px;font-weight:800;letter-spacing:8px;color:#1e40af;font-family:monospace;padding:10px 16px;background:#e0e7ff;border-radius:8px;display:inline-block;">%s</div>
-                    <p style="color:#dc2626;font-size:12px;font-weight:600;margin:12px 0 0 0;">Valid for 5 minutes. Never share this code with anyone.</p>
+                    <p style="color:#dc2626;font-size:12px;font-weight:600;margin:12px 0 0 0;">Valid for 2 minutes. Never share this code with anyone.</p>
                   </div>
                   <p style="color:#4b5563;font-size:12px;line-height:1.5;margin:16px 0 0 0;">If you did not try to sign in, you can ignore this e-mail - your password is still safe. HireJob staff will never ask for this code.</p>
                   <p style="color:#9ca3af;font-size:11px;text-align:center;margin:20px 0 0 0;">&copy; %d HireJob Sri Lanka</p>
                 </div>
                 """.formatted(HtmlUtils.htmlEscape(purposeLabel), HtmlUtils.htmlEscape(code), java.time.Year.now().getValue());
 
-            helper.setText("Your HireJob verification code is " + code + " (valid for 5 minutes).", htmlContent);
+            helper.setText("Your HireJob verification code is " + code + " (valid for 2 minutes).", htmlContent);
             mailSender.send(message);
             log.info("[EMAIL] {} code sent to {}", purposeLabel, maskEmail(toEmail));
             return true;

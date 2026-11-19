@@ -8,7 +8,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   loading: boolean;
   login: (data: LoginData) => Promise<AuthResponse>;
-  loginWithGoogle: (data: { email: string; fullName: string; googleId?: string; avatarUrl?: string }) => Promise<AuthResponse>;
+  verifyOtpLogin: (identifier: string, code: string) => Promise<AuthResponse>;
+  loginWithGoogle: (credential: string) => Promise<AuthResponse>;
   verifyTwoFactor: (email: string, code: string) => Promise<AuthResponse>;
   toggleTwoFactor: (enabled: boolean, twoFactorType?: string) => Promise<User>;
   verifyEmail: (email: string, code: string) => Promise<boolean>;
@@ -53,8 +54,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return authData;
   }, []);
 
-  const loginWithGoogle = useCallback(async (data: { email: string; fullName: string; googleId?: string; avatarUrl?: string }): Promise<AuthResponse> => {
-    const authData = await authService.loginWithGoogle(data);
+  const verifyOtpLogin = useCallback(async (identifier: string, code: string): Promise<AuthResponse> => {
+    const authData = await authService.verifyOtpLogin(identifier, code);
+    if (authData.token) {
+      setToken(authData.token);
+      setUser(authData.user);
+    }
+    return authData;
+  }, []);
+
+  const loginWithGoogle = useCallback(async (credential: string): Promise<AuthResponse> => {
+    const authData = await authService.loginWithGoogle(credential);
     if (authData.token) {
       setToken(authData.token);
       setUser(authData.user);
@@ -114,6 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!token && !!user,
         loading,
         login,
+        verifyOtpLogin,
         loginWithGoogle,
         verifyTwoFactor,
         toggleTwoFactor,

@@ -94,6 +94,20 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    public String generateTokenForUser(Long userId, String scope, int tokenVersion) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + getExpirationMs(scope));
+        return Jwts.builder()
+                .id(UUID.randomUUID().toString())
+                .subject(Long.toString(userId))
+                .claim("scope", scope)
+                .claim("tv", tokenVersion)
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(signingKey)
+                .compact();
+    }
+
     public Long getUserIdFromToken(String token) {
         Claims claims = Jwts.parser()
                 .verifyWith(signingKey)

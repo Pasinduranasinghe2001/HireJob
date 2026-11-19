@@ -34,4 +34,7 @@ public class RegisterRequest {
 
     @NotNull(message = "Role is required")
     private Role role;
+
+    @Pattern(regexp = "^$|^\\d{6}$", message = "Verification code must be 6 digits")
+    private String otpCode;
 }

@@ -10,23 +10,26 @@ import com.hirejob.model.enums.Role;
 import com.hirejob.repository.UserRepository;
 import com.hirejob.security.GoogleTokenVerifier;
 import com.hirejob.security.JwtTokenProvider;
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import com.hirejob.security.PhoneNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +38,13 @@ public class AuthService {
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final long OTP_VALIDITY_MS = 120_000; // 2 minutes (120 seconds)
+    private static final int MAX_OTP_ATTEMPTS = 5;
+
+    private static final String PREFIX_REG = "REG:";
+    private static final String PREFIX_EMAIL = "EMAIL:";
+    private static final String PREFIX_LOGIN = "LOGIN:";
+    private static final String PREFIX_RESET = "RESET:";
+    private static final String PREFIX_2FA = "2FA:";
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -44,12 +54,21 @@ public class AuthService {
     private final SmsService smsService;
     private final GoogleTokenVerifier googleTokenVerifier;
 
-    @Data
-    @AllArgsConstructor
     public static class OtpEntry {
-        private String code;
-        private long createdAt;
-        private long validityMs;
+        private final String code;
+        private final long createdAt;
+        private final long validityMs;
+        private final AtomicInteger failedAttempts = new AtomicInteger(0);
+
+        public OtpEntry(String code, long createdAt, long validityMs) {
+            this.code = code;
+            this.createdAt = createdAt;
+            this.validityMs = validityMs;
+        }
+
+        public String getCode() {
+            return code;
+        }
 
         public boolean isExpired() {
             return (System.currentTimeMillis() - createdAt) > validityMs;
@@ -59,10 +78,18 @@ public class AuthService {
             long remaining = (validityMs - (System.currentTimeMillis() - createdAt)) / 1000;
             return Math.max(0, remaining);
         }
+
+        public int incrementFailedAttempts() {
+            return failedAttempts.incrementAndGet();
+        }
     }
 
-    // In-memory OTP storage for verification with timestamps
     private final ConcurrentHashMap<String, OtpEntry> otpStore = new ConcurrentHashMap<>();
+
+    @Scheduled(fixedDelay = 300_000)
+    public void purgeExpiredOtps() {
+        otpStore.entrySet().removeIf(e -> e.getValue().isExpired());
+    }
 
     private String generateSecureOtp() {
         return String.format("%06d", RANDOM.nextInt(1_000_000));
@@ -72,33 +99,127 @@ public class AuthService {
         return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 
+    private String issueTokenForUser(User user) {
+        String scope = user.getRole() == Role.ROLE_ADMIN
+                ? JwtTokenProvider.SCOPE_ADMIN
+                : JwtTokenProvider.SCOPE_USER;
+        int tv = user.getTokenVersion() == null ? 0 : user.getTokenVersion();
+        return tokenProvider.generateTokenForUser(user.getId(), scope, tv);
+    }
+
+    private User findUserByIdentifier(String rawIdentifier) {
+        String trimmed = rawIdentifier == null ? "" : rawIdentifier.trim();
+        if (trimmed.isEmpty()) {
+            throw new BadRequestException("Please enter your email or phone number.");
+        }
+        if (trimmed.contains("@")) {
+            return userRepository.findByEmail(normalizeEmail(trimmed))
+                    .orElseThrow(() -> new BadRequestException("No account found with that email address."));
+        }
+        List<String> phoneCandidates = PhoneNormalizer.candidates(trimmed);
+        return (phoneCandidates.isEmpty()
+                ? java.util.Optional.<User>empty()
+                : userRepository.findFirstByPhoneIn(phoneCandidates))
+                .or(() -> userRepository.findByEmail(normalizeEmail(trimmed)))
+                .orElseThrow(() -> new BadRequestException("No account found with that phone number or email."));
+    }
+
+    private void verifyAndConsumeOtp(String key, String submittedCode) {
+        OtpEntry entry = otpStore.get(key);
+        if (entry == null) {
+            throw new BadRequestException("No verification code found or code already used. Please request a new code.");
+        }
+        if (entry.isExpired()) {
+            otpStore.remove(key);
+            throw new BadRequestException("Verification code has expired. Please request a new code.");
+        }
+        String candidate = submittedCode == null ? "" : submittedCode.trim();
+        boolean matches = MessageDigest.isEqual(
+                entry.getCode().getBytes(StandardCharsets.UTF_8),
+                candidate.getBytes(StandardCharsets.UTF_8));
+        if (!matches) {
+            if (entry.incrementFailedAttempts() >= MAX_OTP_ATTEMPTS) {
+                otpStore.remove(key);
+                throw new BadRequestException("Too many invalid attempts. Please request a new verification code.");
+            }
+            throw new BadRequestException("Invalid verification code. Please check and try again.");
+        }
+        otpStore.remove(key);
+    }
+
+    /** Step 1 of Registration: Validate fields & send 6-digit OTP to user's Gmail before account creation. */
+    public Map<String, Object> sendRegistrationOtp(RegisterRequest request) {
+        String email = normalizeEmail(request.getEmail());
+        if (userRepository.existsByEmail(email)) {
+            throw new BadRequestException("This email address is already registered. Please log in instead.");
+        }
+
+        String normalizedPhone = PhoneNormalizer.normalizeForStorage(request.getPhone());
+        if (!normalizedPhone.isEmpty()
+                && userRepository.existsByPhoneIn(PhoneNormalizer.candidates(normalizedPhone))) {
+            throw new BadRequestException("This phone number is already registered with another account.");
+        }
+
+        String code = generateSecureOtp();
+        otpStore.put(PREFIX_REG + email, new OtpEntry(code, System.currentTimeMillis(), OTP_VALIDITY_MS));
+
+        boolean emailDelivered = emailService.sendOtp(email, code, "Account Registration");
+        if (emailService.isConfigured() && !emailDelivered) {
+            otpStore.remove(PREFIX_REG + email);
+            throw new BadRequestException("Unable to send verification email to " + email + ". Please check your Gmail address.");
+        }
+
+        if (!emailService.isConfigured()) {
+            log.info("[HIREJOB REG OTP DEV] Verification code for {}: [{}] (Valid 2 min)", email, code);
+        }
+
+        return Map.of(
+                "email", email,
+                "maskedEmail", EmailService.maskEmail(email),
+                "expiresInSeconds", 120,
+                "emailDelivered", emailDelivered,
+                "message", "Verification code sent to " + email);
+    }
+
+    @Transactional
     public AuthResponse register(RegisterRequest request) {
         String email = normalizeEmail(request.getEmail());
         if (userRepository.existsByEmail(email)) {
             throw new BadRequestException("Email address is already registered");
         }
 
+        String normalizedPhone = PhoneNormalizer.normalizeForStorage(request.getPhone());
+        if (!normalizedPhone.isEmpty()
+                && userRepository.existsByPhoneIn(PhoneNormalizer.candidates(normalizedPhone))) {
+            throw new BadRequestException("Phone number is already registered");
+        }
+
+        // Prevent privilege escalation on public self-registration
+        Role safeRole = request.getRole() == Role.ROLE_POSTER ? Role.ROLE_POSTER : Role.ROLE_CLIENT;
+        boolean hasOtp = request.getOtpCode() != null && !request.getOtpCode().isBlank();
+        if (hasOtp) {
+            verifyAndConsumeOtp(PREFIX_REG + email, request.getOtpCode());
+        }
+
         User user = User.builder()
-                .fullName(request.getFullName())
+                .fullName(request.getFullName().trim())
                 .email(email)
                 .password(passwordEncoder.encode(request.getPassword()))
-                .phone(request.getPhone())
-                .role(request.getRole())
-                .emailVerified(false)
+                .phone(normalizedPhone.isEmpty() ? null : normalizedPhone)
+                .role(safeRole)
+                .emailVerified(hasOtp)
                 .twoFactorEnabled(false)
                 .build();
 
         user = userRepository.save(user);
 
-        // Generate dynamic 6-digit code for registration
-        String code = generateSecureOtp();
-        otpStore.put(user.getEmail(), new OtpEntry(code, System.currentTimeMillis(), OTP_VALIDITY_MS));
-        emailService.sendOtp(user.getEmail(), code, "Email Verification");
-        log.info("[HIREJOB OTP DISPATCH] Dynamic verification code for {}: [{}] (Valid for 2 minutes)", user.getEmail(),
-                code);
+        if (!hasOtp) {
+            String code = generateSecureOtp();
+            otpStore.put(PREFIX_EMAIL + user.getEmail(), new OtpEntry(code, System.currentTimeMillis(), OTP_VALIDITY_MS));
+            emailService.sendOtp(user.getEmail(), code, "Email Verification");
+        }
 
-        String token = tokenProvider.generateTokenFromUserId(user.getId());
-
+        String token = issueTokenForUser(user);
         return AuthResponse.builder()
                 .token(token)
                 .user(mapToUserResponse(user))
@@ -107,97 +228,178 @@ public class AuthService {
 
     public AuthResponse login(LoginRequest request) {
         String identifier = request.getEmail() != null ? request.getEmail().trim() : "";
-        Authentication authentication = authenticationManager.authenticate(
+        authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(identifier, request.getPassword()));
 
-        User user;
-        if (identifier.contains("@")) {
-            user = userRepository.findByEmail(identifier.toLowerCase(Locale.ROOT))
-                    .orElseThrow(() -> new BadRequestException("User not found"));
-        } else {
-            user = userRepository.findByPhone(identifier)
-                    .or(() -> userRepository.findByEmail(identifier.toLowerCase(Locale.ROOT)))
-                    .orElseThrow(() -> new BadRequestException("User not found"));
-        }
+        User user = findUserByIdentifier(identifier);
 
-        // If 2FA is enabled, require 2FA challenge with dynamic code
         if (Boolean.TRUE.equals(user.getTwoFactorEnabled())) {
             String tempOtp = generateSecureOtp();
-            otpStore.put(user.getEmail(), new OtpEntry(tempOtp, System.currentTimeMillis(), OTP_VALIDITY_MS));
-            emailService.sendOtp(user.getEmail(), tempOtp, "Two-Factor Authentication");
-            if ("SMS_OTP".equalsIgnoreCase(user.getTwoFactorType()) && user.getPhone() != null) {
-                smsService.sendOtp(user.getPhone(), tempOtp);
+            otpStore.put(PREFIX_2FA + user.getEmail(), new OtpEntry(tempOtp, System.currentTimeMillis(), OTP_VALIDITY_MS));
+            boolean emailDelivered = emailService.sendOtp(user.getEmail(), tempOtp, "Two-Factor Authentication");
+            boolean smsDelivered = "SMS_OTP".equalsIgnoreCase(user.getTwoFactorType())
+                    && user.getPhone() != null
+                    && smsService.sendOtp(user.getPhone(), tempOtp);
+            if (!emailService.isConfigured() && !smsDelivered) {
+                log.info("[HIREJOB 2FA DEV] 2FA OTP for {}: [{}]", user.getEmail(), tempOtp);
             }
-            log.info("[HIREJOB 2FA DISPATCH] Dynamic 2FA OTP for {}: [{}] (Method: {})", user.getEmail(), tempOtp,
-                    user.getTwoFactorType());
 
             return AuthResponse.builder()
                     .twoFactorRequired(true)
-                    .twoFactorType(user.getTwoFactorType() != null ? user.getTwoFactorType() : "SMS_OTP")
+                    .twoFactorType(user.getTwoFactorType() != null ? user.getTwoFactorType() : "EMAIL_OTP")
+                    .maskedEmail(EmailService.maskEmail(user.getEmail()))
+                    .expiresInSeconds(120L)
+                    .emailDelivered(emailDelivered)
+                    .smsDelivered(smsDelivered)
                     .tempToken(UUID.randomUUID().toString())
                     .user(mapToUserResponse(user))
                     .build();
         }
 
-        String token = tokenProvider.generateToken(authentication);
-
+        String token = issueTokenForUser(user);
         return AuthResponse.builder()
                 .token(token)
                 .user(mapToUserResponse(user))
                 .build();
     }
 
-    public AuthResponse loginWithGoogle(GoogleAuthRequest request) {
-        String email = normalizeEmail(request.getEmail());
-        String fullName = request.getFullName();
-        String avatarUrl = request.getAvatarUrl();
-        String googleId = request.getGoogleId();
+    /** Passwordless login Step 1: Send 6-digit OTP to registered phone/email. */
+    public AuthResponse sendOtpLoginCode(OtpRequests.Identifier request) {
+        User user = findUserByIdentifier(request.getIdentifier());
+        String code = generateSecureOtp();
+        otpStore.put(PREFIX_LOGIN + user.getEmail(), new OtpEntry(code, System.currentTimeMillis(), OTP_VALIDITY_MS));
 
-        // If credential is provided and verifier is configured, verify directly
-        if (request.getCredential() != null && !request.getCredential().isBlank()
-                && googleTokenVerifier.isConfigured()) {
-            GoogleTokenVerifier.GoogleUser gu = googleTokenVerifier.verify(request.getCredential());
-            email = normalizeEmail(gu.email());
-            fullName = gu.name() != null && !gu.name().isBlank() ? gu.name() : fullName;
-            avatarUrl = gu.picture() != null ? gu.picture() : avatarUrl;
-            googleId = gu.sub();
+        boolean smsDelivered = user.getPhone() != null && smsService.sendOtp(user.getPhone(), code);
+        boolean emailDelivered = emailService.sendOtp(user.getEmail(), code, "Sign-In Verification");
+
+        if (emailService.isConfigured() && !emailDelivered && !smsDelivered) {
+            otpStore.remove(PREFIX_LOGIN + user.getEmail());
+            throw new BadRequestException("Could not deliver login verification code. Please try password login.");
+        }
+        if (!emailService.isConfigured() && !smsDelivered) {
+            log.info("[HIREJOB OTP-LOGIN DEV] Code for {}: [{}] (Valid 2 min)", user.getEmail(), code);
         }
 
-        final String finalEmail = email;
-        final String finalFullName = fullName != null ? fullName : "User";
-        final String finalAvatarUrl = avatarUrl;
-        final String finalGoogleId = googleId != null ? googleId : UUID.randomUUID().toString();
+        return AuthResponse.builder()
+                .verificationRequired(true)
+                .purpose("OTP_LOGIN")
+                .maskedEmail(EmailService.maskEmail(user.getEmail()))
+                .expiresInSeconds(120L)
+                .emailDelivered(emailDelivered)
+                .smsDelivered(smsDelivered)
+                .build();
+    }
 
-        User user = userRepository.findByEmail(finalEmail)
-                .orElseGet(() -> {
-                    User newUser = User.builder()
-                            .fullName(finalFullName)
-                            .email(finalEmail)
-                            .password(passwordEncoder.encode(UUID.randomUUID().toString()))
-                            .role(Role.ROLE_CLIENT)
-                            .googleId(finalGoogleId)
-                            .avatarUrl(finalAvatarUrl)
-                            .emailVerified(true)
-                            .twoFactorEnabled(false)
-                            .build();
-                    return userRepository.save(newUser);
-                });
+    /** Passwordless login Step 2: Verify 6-digit OTP and sign user in. */
+    @Transactional
+    public AuthResponse verifyOtpLogin(OtpRequests.VerifyCode request) {
+        User user = findUserByIdentifier(request.getIdentifier());
+        verifyAndConsumeOtp(PREFIX_LOGIN + user.getEmail(), request.getCode());
+
+        if (!Boolean.TRUE.equals(user.getEmailVerified())) {
+            user.setEmailVerified(true);
+            user = userRepository.save(user);
+        }
+
+        String token = issueTokenForUser(user);
+        return AuthResponse.builder()
+                .token(token)
+                .authenticated(true)
+                .user(mapToUserResponse(user))
+                .build();
+    }
+
+    /** Forgot Password Step 1: Send 6-digit reset OTP to registered email / SMS. */
+    public Map<String, Object> sendForgotPasswordCode(OtpRequests.Identifier request) {
+        User user = findUserByIdentifier(request.getIdentifier());
+        String code = generateSecureOtp();
+        otpStore.put(PREFIX_RESET + user.getEmail(), new OtpEntry(code, System.currentTimeMillis(), OTP_VALIDITY_MS));
+
+        boolean smsDelivered = user.getPhone() != null && smsService.sendOtp(user.getPhone(), code);
+        boolean emailDelivered = emailService.sendOtp(user.getEmail(), code, "Password Reset");
+
+        if (emailService.isConfigured() && !emailDelivered && !smsDelivered) {
+            otpStore.remove(PREFIX_RESET + user.getEmail());
+            throw new BadRequestException("Could not deliver password reset code. Please check your email.");
+        }
+        if (!emailService.isConfigured() && !smsDelivered) {
+            log.info("[HIREJOB RESET DEV] Reset code for {}: [{}] (Valid 2 min)", user.getEmail(), code);
+        }
+
+        String masked = EmailService.maskEmail(user.getEmail());
+        return Map.of(
+                "maskedEmail", masked,
+                "expiresInSeconds", 120,
+                "emailDelivered", emailDelivered,
+                "smsDelivered", smsDelivered,
+                "message", "Reset code sent to " + masked);
+    }
+
+    /** Forgot Password Step 2: Verify reset OTP and set new password (rotates tokenVersion). */
+    @Transactional
+    public void resetPassword(OtpRequests.ResetPassword request) {
+        User user = findUserByIdentifier(request.getIdentifier());
+        verifyAndConsumeOtp(PREFIX_RESET + user.getEmail(), request.getCode());
+
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new BadRequestException("New password cannot be the same as your current password.");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setEmailVerified(true);
+        user.setTokenVersion(user.getTokenVersion() == null ? 1 : user.getTokenVersion() + 1);
+        userRepository.save(user);
+    }
+
+    public AuthResponse loginWithGoogle(GoogleAuthRequest request) {
+        // Identity always comes from the Google-signed ID token (verified server-side), never the browser.
+        GoogleTokenVerifier.GoogleUser gu = googleTokenVerifier.verify(request.getCredential());
+
+        final String finalEmail = normalizeEmail(gu.email());
+        final String finalFullName = gu.name() != null && !gu.name().isBlank()
+                ? gu.name() : finalEmail.substring(0, finalEmail.indexOf('@'));
+        final String finalAvatarUrl = gu.picture();
+        final String finalGoogleId = gu.sub();
+
+        User existing = userRepository.findByEmail(finalEmail).orElse(null);
+        if (existing != null && existing.getRole() == Role.ROLE_ADMIN) {
+            // Company/admin accounts must use password sign-in (+ optional 2FA), like major platforms.
+            throw new BadRequestException("This is a company account. Please sign in with email and password.");
+        }
+        if (existing != null && existing.getGoogleId() == null) {
+            existing.setGoogleId(finalGoogleId);
+            existing.setEmailVerified(true);
+            if (existing.getAvatarUrl() == null) existing.setAvatarUrl(finalAvatarUrl);
+            existing = userRepository.save(existing);
+        }
+
+        User user = existing != null ? existing : userRepository.save(User.builder()
+                .fullName(finalFullName)
+                .email(finalEmail)
+                .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+                .role(Role.ROLE_CLIENT)
+                .googleId(finalGoogleId)
+                .avatarUrl(finalAvatarUrl)
+                .emailVerified(true)
+                .twoFactorEnabled(false)
+                .build());
 
         if (Boolean.TRUE.equals(user.getTwoFactorEnabled())) {
             String tempOtp = generateSecureOtp();
-            otpStore.put(user.getEmail(), new OtpEntry(tempOtp, System.currentTimeMillis(), OTP_VALIDITY_MS));
+            otpStore.put(PREFIX_2FA + user.getEmail(), new OtpEntry(tempOtp, System.currentTimeMillis(), OTP_VALIDITY_MS));
             emailService.sendOtp(user.getEmail(), tempOtp, "Two-Factor Authentication");
-            log.info("[HIREJOB 2FA DISPATCH] Google login 2FA OTP for {}: [{}]", user.getEmail(), tempOtp);
 
             return AuthResponse.builder()
                     .twoFactorRequired(true)
-                    .twoFactorType(user.getTwoFactorType() != null ? user.getTwoFactorType() : "PASSKEY")
+                    .twoFactorType(user.getTwoFactorType() != null ? user.getTwoFactorType() : "EMAIL_OTP")
+                    .maskedEmail(EmailService.maskEmail(user.getEmail()))
+                    .expiresInSeconds(120L)
                     .tempToken(UUID.randomUUID().toString())
                     .user(mapToUserResponse(user))
                     .build();
         }
 
-        String token = tokenProvider.generateTokenFromUserId(user.getId());
+        String token = issueTokenForUser(user);
         return AuthResponse.builder()
                 .token(token)
                 .user(mapToUserResponse(user))
@@ -205,34 +407,18 @@ public class AuthService {
     }
 
     public AuthResponse verifyTwoFactor(TwoFactorVerifyRequest request) {
-        String email = normalizeEmail(request.getEmail());
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+        User user = findUserByIdentifier(request.getEmail());
 
         if ("passkey_verified".equals(request.getCode())) {
-            String token = tokenProvider.generateTokenFromUserId(user.getId());
+            String token = issueTokenForUser(user);
             return AuthResponse.builder()
                     .token(token)
                     .user(mapToUserResponse(user))
                     .build();
         }
 
-        OtpEntry entry = otpStore.get(email);
-        if (entry == null) {
-            throw new BadRequestException("No verification code was requested or code has already been used");
-        }
-
-        if (entry.isExpired()) {
-            otpStore.remove(email);
-            throw new BadRequestException("Verification code has expired. Please request a new code.");
-        }
-
-        if (!entry.getCode().equals(request.getCode().trim())) {
-            throw new BadRequestException("Invalid verification code. Please check your mobile/email.");
-        }
-
-        otpStore.remove(email);
-        String token = tokenProvider.generateTokenFromUserId(user.getId());
+        verifyAndConsumeOtp(PREFIX_2FA + user.getEmail(), request.getCode());
+        String token = issueTokenForUser(user);
 
         return AuthResponse.builder()
                 .token(token)
@@ -246,7 +432,7 @@ public class AuthService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
         user.setTwoFactorEnabled(request.getEnabled());
-        user.setTwoFactorType(request.getTwoFactorType() != null ? request.getTwoFactorType() : "SMS_OTP");
+        user.setTwoFactorType(request.getTwoFactorType() != null ? request.getTwoFactorType() : "EMAIL_OTP");
         user = userRepository.save(user);
 
         return mapToUserResponse(user);
@@ -258,43 +444,40 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
 
-        OtpEntry entry = otpStore.get(email);
-        if (entry == null) {
-            throw new BadRequestException("No verification code found. Please request a new code.");
-        }
-
-        if (entry.isExpired()) {
-            otpStore.remove(email);
-            throw new BadRequestException("Verification code has expired. Please request a new code.");
-        }
-
-        if (!entry.getCode().equals(request.getCode().trim())) {
-            throw new BadRequestException("Invalid verification code");
-        }
-
+        verifyAndConsumeOtp(PREFIX_EMAIL + email, request.getCode());
         user.setEmailVerified(true);
         userRepository.save(user);
-        otpStore.remove(email);
         return true;
     }
 
-    public Map<String, Object> sendEmailVerificationCode(String email) {
-        String normalized = normalizeEmail(email);
+    public Map<String, Object> sendEmailVerificationCode(String identifierOrEmail) {
+        String normalized;
+        if (identifierOrEmail != null && identifierOrEmail.contains("@")) {
+            normalized = normalizeEmail(identifierOrEmail);
+        } else {
+            normalized = findUserByIdentifier(identifierOrEmail).getEmail();
+        }
         String code = generateSecureOtp();
         OtpEntry entry = new OtpEntry(code, System.currentTimeMillis(), OTP_VALIDITY_MS);
-        otpStore.put(normalized, entry);
-        emailService.sendOtp(normalized, code, "Verification Code");
-        log.info("[HIREJOB EMAIL DISPATCH] Sent verification code to {}: [{}] (Valid for 2 minutes)", normalized, code);
+        otpStore.put(PREFIX_EMAIL + normalized, entry);
+        otpStore.put(PREFIX_2FA + normalized, entry);
+        boolean sent = emailService.sendOtp(normalized, code, "Verification Code");
+        if (!emailService.isConfigured()) {
+            log.info("[HIREJOB EMAIL DEV] Verification code for {}: [{}] (Valid 2 min)", normalized, code);
+        }
 
         return Map.of(
                 "email", normalized,
+                "maskedEmail", EmailService.maskEmail(normalized),
                 "expiresInSeconds", 120,
-                "message", "Verification code sent to " + normalized);
+                "emailDelivered", sent,
+                "message", "Verification code sent to " + EmailService.maskEmail(normalized));
     }
 
     public Map<String, Object> getOtpStatus(String email) {
         String normalized = normalizeEmail(email);
-        OtpEntry entry = otpStore.get(normalized);
+        OtpEntry entry = otpStore.get(PREFIX_EMAIL + normalized);
+        if (entry == null) entry = otpStore.get(PREFIX_REG + normalized);
         if (entry == null || entry.isExpired()) {
             return Map.of("valid", false, "remainingSeconds", 0);
         }
