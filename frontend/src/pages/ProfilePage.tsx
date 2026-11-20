@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { authService } from '../services/auth.service';
 import api from '../services/api';
 import type { ApiResponse, Review, User } from '../types';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -19,7 +20,7 @@ function arrayBufferToBase64Url(buffer: ArrayBuffer): string {
 }
 
 export const ProfilePage: React.FC = () => {
-  const { user, toggleTwoFactor, verifyEmail, sendVerificationEmail, updateUser } = useAuth();
+  const { user, toggleTwoFactor, verifyEmail, updateUser } = useAuth();
   const { t } = useLanguage();
 
   const [fullName, setFullName] = useState(user?.fullName || '');
@@ -38,6 +39,7 @@ export const ProfilePage: React.FC = () => {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [verifyCode, setVerifyCode] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailFallbackCode, setEmailFallbackCode] = useState<string | null>(null);
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -153,8 +155,13 @@ export const ProfilePage: React.FC = () => {
     if (!user?.email) return;
     setSendingEmail(true);
     try {
-      await sendVerificationEmail(user.email);
-      toast.success('Verification code sent to ' + user.email);
+      const res = await authService.sendVerificationEmail(user.email);
+      setEmailFallbackCode(res?.emailDelivered === false && res?.devOtpCode ? res.devOtpCode : null);
+      if (res?.emailDelivered === false && res?.devOtpCode) {
+        toast('Email delivery unavailable — use the verification code shown in the popup.', { icon: '🔐' });
+      } else {
+        toast.success('Verification code sent to ' + user.email);
+      }
       setShowEmailModal(true);
     } catch {
       toast.error('Failed to send verification code');
@@ -522,6 +529,13 @@ export const ProfilePage: React.FC = () => {
                 Enter the 6-digit code sent to <strong className="text-gray-800 dark:text-gray-200">{user?.email}</strong>
               </p>
             </div>
+
+            {emailFallbackCode && (
+              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200">
+                Email delivery unavailable on server — enter verification code:{' '}
+                <strong className="font-mono text-sm tracking-wider">{emailFallbackCode}</strong>
+              </div>
+            )}
 
             <form onSubmit={handleConfirmVerification} className="space-y-4">
               <div>

@@ -205,7 +205,7 @@ public class EmailService {
             ));
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(webhookUrl.trim()))
-                    .timeout(Duration.ofSeconds(12))
+                    .timeout(Duration.ofSeconds(6))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(json))
                     .build();
@@ -214,7 +214,11 @@ public class EmailService {
                 log.info("[EMAIL/WEBHOOK] Verification e-mail sent to {}", maskEmail(toEmail));
                 return true;
             }
-            log.error("[EMAIL/WEBHOOK] HTTP {} sending to {}", res.statusCode(), maskEmail(toEmail));
+            if (res.statusCode() == 401 || res.statusCode() == 403) {
+                log.error("[EMAIL/WEBHOOK] HTTP {} Unauthorized sending to {} — redeploy your Google Apps Script Web App with 'Who has access: Anyone'.", res.statusCode(), maskEmail(toEmail));
+            } else {
+                log.error("[EMAIL/WEBHOOK] HTTP {} sending to {}", res.statusCode(), maskEmail(toEmail));
+            }
             return false;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

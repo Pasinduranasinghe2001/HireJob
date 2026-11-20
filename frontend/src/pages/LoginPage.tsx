@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { authService } from '../services/auth.service';
 import type { User } from '../types';
-import api from '../services/api';
 import GoogleSignInButton from '../components/common/GoogleSignInButton';
 import {
   extractApiError,
@@ -69,6 +68,7 @@ export const LoginPage: React.FC = () => {
   const [twoFactorEmail, setTwoFactorEmail] = useState('');
   const [timeLeft, setTimeLeft] = useState(120);
   const [resending, setResending] = useState(false);
+  const [twoFactorFallbackCode, setTwoFactorFallbackCode] = useState<string | null>(null);
 
   // Forgot password modal state
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -80,6 +80,7 @@ export const LoginPage: React.FC = () => {
   const [forgotShowPassword, setForgotShowPassword] = useState(false);
   const [forgotMaskedEmail, setForgotMaskedEmail] = useState('');
   const [forgotTimeLeft, setForgotTimeLeft] = useState(120);
+  const [forgotFallbackCode, setForgotFallbackCode] = useState<string | null>(null);
 
   useEffect(() => {
     if (!show2FAModal || timeLeft <= 0) return;
@@ -127,6 +128,9 @@ export const LoginPage: React.FC = () => {
         setTwoFactorType(res.twoFactorType || 'EMAIL_OTP');
         setTimeLeft(120);
         setOtpCode('');
+        setTwoFactorFallbackCode(
+          res.tempToken?.startsWith('DEV_OTP:') ? res.tempToken.replace('DEV_OTP:', '') : null
+        );
         setShow2FAModal(true);
         toast('Verification challenge active for your account.', { icon: '🔐' });
         return;
@@ -153,6 +157,9 @@ export const LoginPage: React.FC = () => {
         setTwoFactorType(res.twoFactorType || 'EMAIL_OTP');
         setTimeLeft(120);
         setOtpCode('');
+        setTwoFactorFallbackCode(
+          res.tempToken?.startsWith('DEV_OTP:') ? res.tempToken.replace('DEV_OTP:', '') : null
+        );
         setShow2FAModal(true);
         return;
       }
@@ -195,10 +202,15 @@ export const LoginPage: React.FC = () => {
     if (resending || loading) return;
     setResending(true);
     try {
-      await api.post('/auth/send-verification-email', null, { params: { email: twoFactorEmail } });
+      const res = await authService.sendVerificationEmail(twoFactorEmail);
       setTimeLeft(120);
       setOtpCode('');
-      toast.success(`A new verification code has been sent to ${twoFactorEmail}`);
+      setTwoFactorFallbackCode(res?.emailDelivered === false && res?.devOtpCode ? res.devOtpCode : null);
+      if (res?.emailDelivered === false && res?.devOtpCode) {
+        toast.success('New verification code generated below.');
+      } else {
+        toast.success(`A new verification code has been sent to ${twoFactorEmail}`);
+      }
     } catch (err: any) {
       toast.error(extractApiError(err, 'Failed to resend code'));
     } finally {
@@ -259,6 +271,7 @@ export const LoginPage: React.FC = () => {
     setForgotCode('');
     setForgotNewPassword('');
     setForgotConfirmPassword('');
+    setForgotFallbackCode(null);
     setShowForgotModal(true);
   };
 
@@ -274,8 +287,17 @@ export const LoginPage: React.FC = () => {
       setForgotMaskedEmail(res.maskedEmail || forgotIdentifier.trim());
       setForgotTimeLeft(res.expiresInSeconds || 120);
       setForgotCode('');
+      setForgotFallbackCode(
+        res.emailDelivered === false && res.smsDelivered === false && res.devOtpCode
+          ? res.devOtpCode
+          : null
+      );
       setForgotStep('reset');
-      toast.success(`Reset code sent to ${res.maskedEmail || 'your email'}`);
+      if (res.emailDelivered === false && res.smsDelivered === false && res.devOtpCode) {
+        toast('Email delivery unavailable — use the reset code shown below.', { icon: '🔐' });
+      } else {
+        toast.success(`Reset code sent to ${res.maskedEmail || 'your email'}`);
+      }
     } catch (err: any) {
       toast.error(extractApiError(err, 'Could not send reset code.'));
     } finally {
@@ -495,6 +517,12 @@ export const LoginPage: React.FC = () => {
               </form>
             ) : (
               <form onSubmit={handleResetPasswordSubmit} className="space-y-3.5">
+                {forgotFallbackCode && (
+                  <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 text-center">
+                    Email delivery unavailable on server — enter code:{' '}
+                    <strong className="font-mono text-sm tracking-wider">{forgotFallbackCode}</strong>
+                  </div>
+                )}
                 <div>
                   <input
                     type="text"
@@ -593,6 +621,13 @@ export const LoginPage: React.FC = () => {
                     }`}
               </p>
             </div>
+
+            {twoFactorFallbackCode && (
+              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200">
+                Email delivery unavailable on server — enter verification code:{' '}
+                <strong className="font-mono text-sm tracking-wider">{twoFactorFallbackCode}</strong>
+              </div>
+            )}
 
             {twoFactorType === 'PASSKEY' && (
               <button

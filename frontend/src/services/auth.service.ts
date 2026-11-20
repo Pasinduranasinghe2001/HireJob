@@ -7,6 +7,7 @@ export interface OtpDispatchResult {
   expiresInSeconds?: number;
   emailDelivered?: boolean;
   smsDelivered?: boolean;
+  devOtpCode?: string;
   message?: string;
 }
 
@@ -98,8 +99,11 @@ export const authService = {
     return response.data.data;
   },
 
-  async sendVerificationEmail(email: string): Promise<void> {
-    await api.post(`/auth/send-verification-email?email=${encodeURIComponent(email)}`);
+  async sendVerificationEmail(email: string): Promise<OtpDispatchResult> {
+    const response = await api.post<ApiResponse<OtpDispatchResult>>(
+      `/auth/send-verification-email?email=${encodeURIComponent(email)}`
+    );
+    return response.data.data;
   },
 
   async register(data: RegisterData): Promise<AuthResponse> {

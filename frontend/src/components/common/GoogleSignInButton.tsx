@@ -79,8 +79,10 @@ interface GoogleSignInButtonProps {
 }
 
 /**
- * Displays a crisp, standard pill-shaped Google Sign-In button with `colorScheme: 'light'`
- * on the GIS container so dark-mode browsers never draw ugly white rectangular box artifacts.
+ * Always renders a clean, standard neutral "[ G  Continue with Google ]" button
+ * (never pre-showing a browser Gmail address or personalized chip), while placing
+ * Google Identity Services' real interactive button as an invisible click overlay on top
+ * so clicking anywhere launches authentic Google Sign-In.
  */
 export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   onCredential,
@@ -117,8 +119,8 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     });
 
     gsiContainerRef.current.innerHTML = '';
-    const parentWidth = wrapperRef.current?.offsetWidth || 340;
-    const width = Math.min(Math.max(parentWidth - 4, 240), 380);
+    const parentWidth = wrapperRef.current?.offsetWidth || 360;
+    const width = Math.min(Math.max(parentWidth, 240), 400);
     window.google.accounts.id.renderButton(gsiContainerRef.current, {
       type: 'standard',
       theme: 'outline',
@@ -157,14 +159,12 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         try {
           window.google?.accounts?.id?.prompt();
         } catch {
-          // User can click the freshly mounted official Google button directly
+          // User can click the freshly mounted Google button directly
         }
         return;
       }
       if (result === 'missing_client_id') {
-        toast.error(
-          'Add your Google OAuth Client ID (GOOGLE_CLIENT_ID) to Render Environment so Google shows your browser Gmail accounts.'
-        );
+        toast.error('Google Sign-In Client ID is not configured.');
       } else {
         toast.error('Server is still waking up. Please wait a few seconds and click again.');
       }
@@ -178,32 +178,32 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   return (
     <div
       ref={wrapperRef}
-      className={`w-full flex justify-center transition-opacity ${
+      className={`relative w-full h-11 rounded-full overflow-hidden group transition-opacity ${
         disabled ? 'pointer-events-none opacity-50' : ''
       }`}
     >
+      {/* Standard, clean neutral Google Sign-In pill UI */}
+      <button
+        type="button"
+        onClick={gsiReady ? undefined : handleFallbackClick}
+        disabled={disabled || checking}
+        className="w-full h-full flex items-center justify-center gap-3 px-4 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 group-hover:bg-gray-50 dark:group-hover:bg-gray-700 text-sm font-semibold text-gray-800 dark:text-gray-100 shadow-xs transition cursor-pointer disabled:opacity-60"
+      >
+        <FcGoogle className="w-5 h-5 shrink-0" />
+        <span>{checking ? 'Connecting to Google...' : label}</span>
+      </button>
+
+      {/* Transparent click layer wrapping the authentic Google Identity Services iframe */}
       <div
-        style={{ colorScheme: 'light' }}
+        aria-hidden="true"
         className={
           gsiReady
-            ? 'inline-flex items-center justify-center rounded-full overflow-hidden bg-white shadow-xs border border-gray-200 dark:border-gray-600'
+            ? 'absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-full opacity-[0.01] cursor-pointer scale-y-110'
             : 'hidden'
         }
       >
-        <div ref={gsiContainerRef} className="flex justify-center items-center min-h-[40px]" />
+        <div ref={gsiContainerRef} className="w-full flex justify-center" />
       </div>
-
-      {!gsiReady && (
-        <button
-          type="button"
-          onClick={handleFallbackClick}
-          disabled={disabled || checking}
-          className="w-full h-11 flex items-center justify-center gap-3 px-4 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-semibold text-gray-800 dark:text-gray-100 shadow-xs transition cursor-pointer disabled:opacity-60"
-        >
-          <FcGoogle className="w-5 h-5 shrink-0" />
-          <span>{checking ? 'Connecting to Google...' : label}</span>
-        </button>
-      )}
     </div>
   );
 };
