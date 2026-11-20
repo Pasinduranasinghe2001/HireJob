@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { FcGoogle } from 'react-icons/fc';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
@@ -17,6 +17,7 @@ interface GoogleAccountsId {
     context?: 'signin' | 'signup' | 'use';
   }) => void;
   renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
+  prompt: () => void;
 }
 declare global {
   interface Window {
@@ -39,7 +40,7 @@ function loadGsiScript(): Promise<void> {
       const timer = setTimeout(() => {
         scriptPromise = null;
         reject(new Error('Google script timed out'));
-      }, 6000);
+      }, 10000);
       s.onload = () => {
         clearTimeout(timer);
         resolve();
@@ -55,17 +56,18 @@ function loadGsiScript(): Promise<void> {
   return scriptPromise;
 }
 
-async function fetchClientId(): Promise<string> {
+async function fetchClientId(): Promise<{ clientId: string; reachable: boolean }> {
   const envId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
-  if (envId) return envId;
-  if (cachedClientId !== null) return cachedClientId;
+  if (envId) return { clientId: envId, reachable: true };
+  if (cachedClientId) return { clientId: cachedClientId, reachable: true };
   try {
-    const res = await api.get('/auth/google/config', { timeout: 6000 });
+    // Allow up to 35s in case Render Free tier is waking up from sleep
+    const res = await api.get('/auth/google/config', { timeout: 35000 });
     const id = (res.data?.data?.clientId as string) || '';
     if (id) cachedClientId = id;
-    return id;
+    return { clientId: id, reachable: true };
   } catch {
-    return '';
+    return { clientId: '', reachable: false };
   }
 }
 
@@ -79,8 +81,7 @@ interface GoogleSignInButtonProps {
 /**
  * Always displays a clean Google Sign-In pill button immediately.
  * When GOOGLE_CLIENT_ID is configured on the server (or VITE_GOOGLE_CLIENT_ID),
- * Google's official Identity Services button mounts directly inside so users can pick
- * any Gmail account signed into their browser.
+ * mounts Google's official button so users see Google's browser Gmail account chooser.
  */
 export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   onCredential,
@@ -92,88 +93,104 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   const callbackRef = useRef(onCredential);
   const { theme } = useTheme();
   const [gsiReady, setGsiReady] = useState(false);
-  const [hasClientId, setHasClientId] = useState<boolean | null>(null);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     callbackRef.current = onCredential;
   }, [onCredential]);
 
+  const initializeGoogleButton = useCallback(async (): Promise<'ready' | 'missing_client_id' | 'unreachable'> => {
+    const { clientId, reachable } = await fetchClientId();
+    if (!reachable) return 'unreachable';
+    if (!clientId) return 'missing_client_id';
+
+    await loadGsiScript();
+    if (!gsiContainerRef.current || !window.google?.accounts?.id) return 'unreachable';
+
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: (res) => {
+        if (res?.credential) callbackRef.current(res.credential);
+      },
+      ux_mode: 'popup',
+      cancel_on_tap_outside: true,
+      context: text === 'signup_with' ? 'signup' : 'signin',
+    });
+
+    gsiContainerRef.current.innerHTML = '';
+    const width = Math.min(Math.max(gsiContainerRef.current.offsetWidth || 320, 220), 400);
+    window.google.accounts.id.renderButton(gsiContainerRef.current, {
+      type: 'standard',
+      theme: theme === 'dark' ? 'filled_black' : 'outline',
+      size: 'large',
+      text,
+      shape: 'pill',
+      logo_alignment: 'left',
+      width,
+    });
+    setGsiReady(true);
+    return 'ready';
+  }, [theme, text]);
+
   useEffect(() => {
     let cancelled = false;
-
-    const init = async () => {
-      const clientId = await fetchClientId();
-      if (cancelled) return;
-      if (!clientId) {
-        setHasClientId(false);
-        setGsiReady(false);
-        return;
-      }
-      setHasClientId(true);
+    (async () => {
       try {
-        await loadGsiScript();
-        if (cancelled || !gsiContainerRef.current || !window.google?.accounts?.id) return;
-
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: (res) => {
-            if (res?.credential) callbackRef.current(res.credential);
-          },
-          ux_mode: 'popup',
-          cancel_on_tap_outside: true,
-          context: text === 'signup_with' ? 'signup' : 'signin',
-        });
-
-        gsiContainerRef.current.innerHTML = '';
-        const width = Math.min(Math.max(gsiContainerRef.current.offsetWidth || 320, 220), 400);
-        window.google.accounts.id.renderButton(gsiContainerRef.current, {
-          type: 'standard',
-          theme: theme === 'dark' ? 'filled_black' : 'outline',
-          size: 'large',
-          text,
-          shape: 'pill',
-          logo_alignment: 'left',
-          width,
-        });
-        setGsiReady(true);
+        const res = await initializeGoogleButton();
+        if (cancelled) return;
+        if (res !== 'ready') setGsiReady(false);
       } catch {
         if (!cancelled) setGsiReady(false);
       }
-    };
-
-    init();
+    })();
     return () => {
       cancelled = true;
     };
-  }, [theme, text]);
+  }, [initializeGoogleButton]);
 
-  const handleFallbackClick = () => {
-    if (disabled) return;
-    if (hasClientId === false) {
-      toast.error('Google Sign-In requires GOOGLE_CLIENT_ID in Render Environment settings.');
-    } else {
-      toast('Connecting to Google Sign-In... Please wait a moment or use Email/Password.', { icon: 'ℹ️' });
+  const handleFallbackClick = async () => {
+    if (disabled || checking) return;
+    setChecking(true);
+    try {
+      const result = await initializeGoogleButton();
+      if (result === 'ready') {
+        try {
+          window.google?.accounts?.id?.prompt();
+        } catch {
+          // User can click the freshly mounted official Google button directly
+        }
+        return;
+      }
+      if (result === 'missing_client_id') {
+        toast.error(
+          'Add your Google OAuth Client ID (GOOGLE_CLIENT_ID) to Render Environment so Google shows your browser Gmail accounts.'
+        );
+      } else {
+        toast.error('Server is still waking up. Please wait a few seconds and click again.');
+      }
+    } catch {
+      toast.error('Could not reach Google Sign-In. Please check your connection and try again.');
+    } finally {
+      setChecking(false);
     }
   };
 
   return (
     <div className={`w-full ${disabled ? 'pointer-events-none opacity-60' : ''}`}>
-      {/* Official Google GIS button mounts here once GOOGLE_CLIENT_ID + Google script load */}
       <div
         ref={gsiContainerRef}
         className={gsiReady ? 'w-full flex justify-center min-h-[44px]' : 'hidden'}
       />
 
-      {/* Always-visible clean Google pill button shown immediately / when GOOGLE_CLIENT_ID is pending */}
       {!gsiReady && (
         <button
           type="button"
           onClick={handleFallbackClick}
-          disabled={disabled}
-          className="w-full h-11 flex items-center justify-center gap-3 px-4 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-semibold text-gray-800 dark:text-gray-100 shadow-xs transition cursor-pointer"
+          disabled={disabled || checking}
+          className="w-full h-11 flex items-center justify-center gap-3 px-4 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-semibold text-gray-800 dark:text-gray-100 shadow-xs transition cursor-pointer disabled:opacity-60"
         >
           <FcGoogle className="w-5 h-5 shrink-0" />
-          <span>{label}</span>
+          <span>{checking ? 'Connecting to Google...' : label}</span>
         </button>
       )}
     </div>
