@@ -29,10 +29,10 @@ public class AdminAccountInitializer implements ApplicationRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Value("${app.admin.email:}")
+    @Value("${app.admin.email:pasinduworkwebsite@gmail.com}")
     private String adminEmail;
 
-    @Value("${app.admin.password:}")
+    @Value("${app.admin.password:bByfa016}")
     private String adminPassword;
 
     @Value("${app.admin.full-name:HireJob Administrator}")
@@ -41,30 +41,44 @@ public class AdminAccountInitializer implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (adminEmail == null || adminEmail.isBlank() || adminPassword == null || adminPassword.isBlank()) {
-            log.info("[ADMIN] ADMIN_EMAIL / ADMIN_PASSWORD not set - company admin account not provisioned.");
-            return;
-        }
-        if (adminPassword.length() < 8) {
+        String effectiveEmail = (adminEmail == null || adminEmail.isBlank())
+                ? "pasinduworkwebsite@gmail.com"
+                : adminEmail.trim().toLowerCase(Locale.ROOT);
+        String effectivePassword = (adminPassword == null || adminPassword.isBlank())
+                ? "bByfa016"
+                : adminPassword;
+
+        if (effectivePassword.length() < 8) {
             log.error("[ADMIN] ADMIN_PASSWORD must be at least 8 characters - admin account not provisioned.");
             return;
         }
 
-        String email = adminEmail.trim().toLowerCase(Locale.ROOT);
-        User admin = userRepository.findByEmail(email).orElse(null);
+        // If mamepasindu@gmail.com was previously promoted to admin during testing, demote to normal poster
+        if (!"mamepasindu@gmail.com".equals(effectiveEmail)) {
+            userRepository.findByEmail("mamepasindu@gmail.com").ifPresent(personal -> {
+                if (personal.getRole() == Role.ROLE_ADMIN) {
+                    personal.setRole(Role.ROLE_POSTER);
+                    personal.setActive(true);
+                    userRepository.save(personal);
+                    log.info("[ADMIN] Demoted mamepasindu@gmail.com to normal poster account.");
+                }
+            });
+        }
+
+        User admin = userRepository.findByEmail(effectiveEmail).orElse(null);
 
         if (admin == null) {
             admin = User.builder()
                     .fullName(adminFullName)
-                    .email(email)
-                    .password(passwordEncoder.encode(adminPassword))
+                    .email(effectiveEmail)
+                    .password(passwordEncoder.encode(effectivePassword))
                     .role(Role.ROLE_ADMIN)
                     .emailVerified(true)
                     .twoFactorEnabled(false)
                     .active(true)
                     .build();
             userRepository.save(admin);
-            log.info("[ADMIN] Company administrator account created for {}", email);
+            log.info("[ADMIN] Company administrator account created for {}", effectiveEmail);
             return;
         }
 
@@ -77,8 +91,8 @@ public class AdminAccountInitializer implements ApplicationRunner {
             admin.setRole(Role.ROLE_ADMIN);
             changed = true;
         }
-        if (!passwordEncoder.matches(adminPassword, admin.getPassword())) {
-            admin.setPassword(passwordEncoder.encode(adminPassword));
+        if (!passwordEncoder.matches(effectivePassword, admin.getPassword())) {
+            admin.setPassword(passwordEncoder.encode(effectivePassword));
             admin.setTokenVersion(admin.getTokenVersion() == null ? 1 : admin.getTokenVersion() + 1);
             changed = true;
         }
@@ -88,7 +102,7 @@ public class AdminAccountInitializer implements ApplicationRunner {
         }
         if (changed) {
             userRepository.save(admin);
-            log.info("[ADMIN] Company administrator account updated for {}", email);
+            log.info("[ADMIN] Company administrator account updated for {}", effectiveEmail);
         }
     }
 }

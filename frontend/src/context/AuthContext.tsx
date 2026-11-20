@@ -15,34 +15,50 @@ interface AuthContextType {
   verifyEmail: (email: string, code: string) => Promise<boolean>;
   sendVerificationEmail: (email: string) => Promise<void>;
   register: (data: RegisterData) => Promise<AuthResponse>;
+  updateUser: (updatedUser: User) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(() => authService.getStoredUser());
+  const [token, setToken] = useState<string | null>(() => authService.getToken());
+  const [loading, setLoading] = useState<boolean>(() => {
+    const t = authService.getToken();
+    const u = authService.getStoredUser();
+    return !!t && !u;
+  });
 
   useEffect(() => {
+    let ignore = false;
     const initAuth = async () => {
       const storedToken = authService.getToken();
-      if (storedToken) {
-        setToken(storedToken);
-        try {
-          const currentUser = await authService.getCurrentUser();
+      if (!storedToken) {
+        if (!ignore) setLoading(false);
+        return;
+      }
+      try {
+        const currentUser = await authService.getCurrentUser();
+        if (!ignore && currentUser) {
           setUser(currentUser);
           localStorage.setItem('user', JSON.stringify(currentUser));
-        } catch {
+        }
+      } catch (err: any) {
+        const status = err?.response?.status;
+        if (!ignore && (status === 401 || status === 403)) {
           authService.logout();
           setToken(null);
           setUser(null);
         }
+      } finally {
+        if (!ignore) setLoading(false);
       }
-      setLoading(false);
     };
     initAuth();
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   const login = useCallback(async (data: LoginData): Promise<AuthResponse> => {
@@ -110,6 +126,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return authData;
   }, []);
 
+  const updateUser = useCallback((updatedUser: User) => {
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+  }, []);
+
   const logout = useCallback(() => {
     authService.logout();
     setToken(null);
@@ -131,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         verifyEmail,
         sendVerificationEmail,
         register,
+        updateUser,
         logout,
       }}
     >

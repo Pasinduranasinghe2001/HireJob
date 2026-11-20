@@ -45,6 +45,22 @@ export const authService = {
     await api.post('/auth/forgot-password/reset', { identifier, code, newPassword });
   },
 
+  async sendPreRegistrationEmailOtp(identifier: string): Promise<OtpDispatchResult> {
+    const response = await api.post<ApiResponse<OtpDispatchResult>>('/auth/register/send-email-otp', { identifier });
+    return response.data.data;
+  },
+
+  async verifyPreRegistrationEmailOtp(
+    identifier: string,
+    code: string
+  ): Promise<{ email: string; verified: boolean; message: string }> {
+    const response = await api.post<ApiResponse<{ email: string; verified: boolean; message: string }>>(
+      '/auth/register/verify-email-otp',
+      { identifier, code }
+    );
+    return response.data.data;
+  },
+
   async sendRegistrationOtp(data: RegisterData): Promise<OtpDispatchResult> {
     const response = await api.post<ApiResponse<OtpDispatchResult>>('/auth/register/send-otp', data);
     return response.data.data;
@@ -111,7 +127,13 @@ export const authService = {
   },
 
   getStoredUser(): User | null {
-    const user = localStorage.getItem('user');
-    return user ? JSON.parse(user) : null;
+    const raw = localStorage.getItem('user');
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as User;
+    } catch {
+      localStorage.removeItem('user');
+      return null;
+    }
   },
 };

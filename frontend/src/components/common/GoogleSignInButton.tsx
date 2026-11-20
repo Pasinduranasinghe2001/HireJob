@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { FcGoogle } from 'react-icons/fc';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
-import { useTheme } from '../../context/ThemeContext';
 
 interface GoogleCredentialResponse {
   credential: string;
@@ -26,6 +25,8 @@ declare global {
 }
 
 const GSI_SRC = 'https://accounts.google.com/gsi/client';
+const DEFAULT_GOOGLE_CLIENT_ID =
+  '306552749425-8skeiqc87hn9j1k02154rpufc4td34rq.apps.googleusercontent.com';
 let scriptPromise: Promise<void> | null = null;
 let cachedClientId: string | null = null;
 
@@ -61,13 +62,12 @@ async function fetchClientId(): Promise<{ clientId: string; reachable: boolean }
   if (envId) return { clientId: envId, reachable: true };
   if (cachedClientId) return { clientId: cachedClientId, reachable: true };
   try {
-    // Allow up to 35s in case Render Free tier is waking up from sleep
-    const res = await api.get('/auth/google/config', { timeout: 35000 });
-    const id = (res.data?.data?.clientId as string) || '';
-    if (id) cachedClientId = id;
+    const res = await api.get('/auth/google/config', { timeout: 6000 });
+    const id = (res.data?.data?.clientId as string) || DEFAULT_GOOGLE_CLIENT_ID;
+    cachedClientId = id;
     return { clientId: id, reachable: true };
   } catch {
-    return { clientId: '', reachable: false };
+    return { clientId: DEFAULT_GOOGLE_CLIENT_ID, reachable: true };
   }
 }
 
@@ -79,9 +79,8 @@ interface GoogleSignInButtonProps {
 }
 
 /**
- * Always displays a clean Google Sign-In pill button immediately.
- * When GOOGLE_CLIENT_ID is configured on the server (or VITE_GOOGLE_CLIENT_ID),
- * mounts Google's official button so users see Google's browser Gmail account chooser.
+ * Displays a crisp, standard pill-shaped Google Sign-In button with `colorScheme: 'light'`
+ * on the GIS container so dark-mode browsers never draw ugly white rectangular box artifacts.
  */
 export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   onCredential,
@@ -89,9 +88,9 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   label = 'Continue with Google',
   disabled = false,
 }) => {
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const gsiContainerRef = useRef<HTMLDivElement>(null);
   const callbackRef = useRef(onCredential);
-  const { theme } = useTheme();
   const [gsiReady, setGsiReady] = useState(false);
   const [checking, setChecking] = useState(false);
 
@@ -118,10 +117,11 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     });
 
     gsiContainerRef.current.innerHTML = '';
-    const width = Math.min(Math.max(gsiContainerRef.current.offsetWidth || 320, 220), 400);
+    const parentWidth = wrapperRef.current?.offsetWidth || 340;
+    const width = Math.min(Math.max(parentWidth - 4, 240), 380);
     window.google.accounts.id.renderButton(gsiContainerRef.current, {
       type: 'standard',
-      theme: theme === 'dark' ? 'filled_black' : 'outline',
+      theme: 'outline',
       size: 'large',
       text,
       shape: 'pill',
@@ -130,7 +130,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     });
     setGsiReady(true);
     return 'ready';
-  }, [theme, text]);
+  }, [text]);
 
   useEffect(() => {
     let cancelled = false;
@@ -176,11 +176,22 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   };
 
   return (
-    <div className={`w-full ${disabled ? 'pointer-events-none opacity-60' : ''}`}>
+    <div
+      ref={wrapperRef}
+      className={`w-full flex justify-center transition-opacity ${
+        disabled ? 'pointer-events-none opacity-50' : ''
+      }`}
+    >
       <div
-        ref={gsiContainerRef}
-        className={gsiReady ? 'w-full flex justify-center min-h-[44px]' : 'hidden'}
-      />
+        style={{ colorScheme: 'light' }}
+        className={
+          gsiReady
+            ? 'inline-flex items-center justify-center rounded-full overflow-hidden bg-white shadow-xs border border-gray-200 dark:border-gray-600'
+            : 'hidden'
+        }
+      >
+        <div ref={gsiContainerRef} className="flex justify-center items-center min-h-[40px]" />
+      </div>
 
       {!gsiReady && (
         <button

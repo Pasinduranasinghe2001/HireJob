@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiBriefcase, FiArrowRight } from 'react-icons/fi';
+import { FiArrowRight } from 'react-icons/fi';
 import JobSearch from '../components/jobs/JobSearch';
 import JobCard from '../components/jobs/JobCard';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -62,8 +62,8 @@ export const HomePage: React.FC = () => {
         </div>
 
         <div className="max-w-5xl mx-auto text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 text-xs font-semibold uppercase tracking-wider">
-            <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-xs font-semibold uppercase tracking-wider">
+            <img src="/logo-icon.png" alt="HireJob" className="w-4 h-4 object-contain" />
             Sri Lanka's Direct Hire & Service Marketplace
           </div>
 
@@ -116,12 +116,12 @@ export const HomePage: React.FC = () => {
           </div>
         ) : (
           <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-8">
-            <FiBriefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <img src="/logo-icon.png" alt="HireJob" className="w-12 h-12 object-contain mx-auto mb-3 opacity-80" />
             <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300">No services listed yet</h3>
             <p className="text-sm text-gray-500 mt-1">Be the first to list your service or hire workers!</p>
             <Link
               to="/post-job"
-              className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700"
+              className="mt-4 inline-block px-4 py-2 bg-gradient-to-r from-[#fa9d01] to-[#f95a03] text-white rounded-lg text-sm font-semibold hover:brightness-105"
             >
               Post a Service
             </Link>
@@ -152,7 +152,7 @@ export const HomePage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
             <div className="p-6 rounded-2xl bg-gray-50 dark:bg-gray-700/60 border border-gray-200 dark:border-gray-600 space-y-3 shadow-xs">
-              <div className="w-12 h-12 bg-blue-600 text-white rounded-xl flex items-center justify-center font-bold text-lg mx-auto shadow-sm">
+              <div className="w-12 h-12 bg-gradient-to-br from-[#fa9d01] to-[#f95a03] text-white rounded-xl flex items-center justify-center font-bold text-lg mx-auto shadow-sm">
                 1
               </div>
               <h3 className="font-bold text-gray-900 dark:text-white text-base">Browse Free & Find Services</h3>

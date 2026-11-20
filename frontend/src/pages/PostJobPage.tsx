@@ -61,10 +61,18 @@ export const PostJobPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!contactPhone.trim() || contactPhone.replace(/\D/g, '').length < 9) {
+      const phoneMsg = 'Please enter a valid contact phone number for client identification.';
+      setError(phoneMsg);
+      toast.error(phoneMsg);
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // 1. Create the job with duration and direct contact
+      // 1. Create the job with duration and mandatory client identification contact details
       const createdJob = await jobService.createJob({
         title,
         description,
@@ -74,9 +82,9 @@ export const PostJobPage: React.FC = () => {
         salaryMin: salaryMin === '' ? 0 : Number(salaryMin),
         salaryMax: salaryMax === '' ? 0 : Number(salaryMax),
         durationDays: durationDays,
-        contactPhone: contactPhone || undefined,
-        contactWhatsapp: contactWhatsapp || undefined,
-        contactEmail: contactEmail || undefined,
+        contactPhone: contactPhone.trim(),
+        contactWhatsapp: contactWhatsapp.trim() || contactPhone.trim(),
+        contactEmail: contactEmail.trim() || user?.email || undefined,
       });
 
       // 2. Upload images if provided (up to 5)
@@ -261,23 +269,31 @@ export const PostJobPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Direct Contact Info (For normal customers to contact directly) */}
+          {/* Direct Contact & Mandatory Client Identification Details */}
           <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-4">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
-              Direct Customer Contact Details
-            </h4>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                Provider &amp; Client Identification Details (Required)
+              </h4>
+              {user && (
+                <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                  Posting as: <strong>{user.fullName}</strong> ({user.email})
+                </span>
+              )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
                   <FiPhone />
-                  {t('post.phone')}
+                  {t('post.phone')} *
                 </label>
                 <input
                   type="tel"
+                  required
                   value={contactPhone}
                   onChange={(e) => setContactPhone(e.target.value)}
                   placeholder="077 123 4567"
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-xs text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none"
                 />
               </div>
 
@@ -291,21 +307,22 @@ export const PostJobPage: React.FC = () => {
                   value={contactWhatsapp}
                   onChange={(e) => setContactWhatsapp(e.target.value)}
                   placeholder="94771234567"
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-xs text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none"
                 />
               </div>
 
               <div>
                 <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
                   <FiMail />
-                  {t('post.email')}
+                  {t('post.email')} *
                 </label>
                 <input
                   type="email"
+                  required
                   value={contactEmail}
                   onChange={(e) => setContactEmail(e.target.value)}
                   placeholder="contact@gmail.com"
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-xs text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none"
                 />
               </div>
             </div>

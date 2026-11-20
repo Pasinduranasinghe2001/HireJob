@@ -7,7 +7,6 @@ import type { Job, ApiResponse, JobApplication } from '../types';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import PriorityBoostModal from '../components/jobs/PriorityBoostModal';
 import {
-  FiBriefcase,
   FiSend,
   FiPlusCircle,
   FiEye,
@@ -136,8 +135,8 @@ export const DashboardPage: React.FC = () => {
       {/* Stats counter */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="p-5 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xl">
-            <FiBriefcase />
+          <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
+            <img src="/logo-icon.png" alt="HireJob" className="w-7 h-7 object-contain" />
           </div>
           <div>
             <p className="text-xs font-semibold text-gray-400 uppercase">Services Posted By You</p>
@@ -261,11 +260,11 @@ export const DashboardPage: React.FC = () => {
             })
           ) : (
             <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-8">
-              <FiBriefcase className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+              <img src="/logo-icon.png" alt="HireJob" className="w-10 h-10 object-contain mx-auto mb-2 opacity-80" />
               <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">You haven't posted any services yet</p>
               <Link
                 to="/post-job"
-                className="mt-3 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700"
+                className="mt-3 inline-block px-4 py-2 bg-gradient-to-r from-[#fa9d01] to-[#f95a03] text-white rounded-lg text-xs font-semibold hover:brightness-105"
               >
                 Post Your First Service
               </Link>

@@ -12,6 +12,7 @@ import com.hirejob.model.enums.JobStatus;
 import com.hirejob.model.enums.JobType;
 import com.hirejob.repository.JobRepository;
 import com.hirejob.repository.UserRepository;
+import com.hirejob.security.PhoneNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -101,6 +102,25 @@ public class JobService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
+        if (request.getLocation() == null || request.getLocation().isBlank()) {
+            throw new BadRequestException("Location / District is required for client identification");
+        }
+        if (request.getDescription() == null || request.getDescription().isBlank()) {
+            throw new BadRequestException("Service description is required");
+        }
+
+        String resolvedPhone = (request.getContactPhone() != null && !request.getContactPhone().isBlank())
+                ? request.getContactPhone().trim()
+                : (user.getPhone() != null ? user.getPhone().trim() : "");
+        if (resolvedPhone.isBlank()) {
+            throw new BadRequestException("A contact phone number is required for client identification");
+        }
+        String normalizedPhone = PhoneNormalizer.normalizeForStorage(resolvedPhone);
+        if (user.getPhone() == null || user.getPhone().isBlank()) {
+            user.setPhone(normalizedPhone);
+            user = userRepository.save(user);
+        }
+
         java.time.LocalDateTime expiresAt = null;
         if (request.getDurationDays() != null && request.getDurationDays() > 0) {
             expiresAt = java.time.LocalDateTime.now().plusDays(request.getDurationDays());
@@ -111,20 +131,20 @@ public class JobService {
         );
 
         Job job = Job.builder()
-                .title(request.getTitle())
-                .description(request.getDescription())
+                .title(request.getTitle().trim())
+                .description(request.getDescription().trim())
                 .jobType(request.getJobType())
                 .category(request.getCategory())
-                .location(request.getLocation())
+                .location(request.getLocation().trim())
                 .latitude(request.getLatitude())
                 .longitude(request.getLongitude())
                 .salaryMin(request.getSalaryMin())
                 .salaryMax(request.getSalaryMax())
                 .durationDays(request.getDurationDays())
                 .expiresAt(expiresAt)
-                .contactPhone(request.getContactPhone() != null && !request.getContactPhone().isBlank() ? request.getContactPhone() : user.getPhone())
+                .contactPhone(normalizedPhone)
                 .contactWhatsapp(request.getContactWhatsapp())
-                .contactEmail(request.getContactEmail() != null && !request.getContactEmail().isBlank() ? request.getContactEmail() : user.getEmail())
+                .contactEmail(request.getContactEmail() != null && !request.getContactEmail().isBlank() ? request.getContactEmail().trim() : user.getEmail())
                 .spamScore(spamResult.getScore())
                 .isFlagged(spamResult.isFlagged())
                 .isPriority(false)

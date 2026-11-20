@@ -16,8 +16,6 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +29,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -39,7 +38,10 @@ public class AuthService {
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final long OTP_VALIDITY_MS = 120_000; // 2 minutes (120 seconds)
+    private static final long VERIFIED_EMAIL_TTL_MS = 900_000; // 15 minutes to complete registration form
     private static final int MAX_OTP_ATTEMPTS = 5;
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    private static final Pattern PHONE_PATTERN = Pattern.compile("^\\+?[0-9 ()-]{7,20}$");
 
     private static final String PREFIX_REG = "REG:";
     private static final String PREFIX_EMAIL = "EMAIL:";
@@ -51,7 +53,6 @@ public class AuthService {
     private final PlatformSettingRepository platformSettingRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
-    private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
     private final SmsService smsService;
     private final GoogleTokenVerifier googleTokenVerifier;
@@ -87,10 +88,13 @@ public class AuthService {
     }
 
     private final ConcurrentHashMap<String, OtpEntry> otpStore = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Long> verifiedRegEmails = new ConcurrentHashMap<>();
 
     @Scheduled(fixedDelay = 300_000)
     public void purgeExpiredOtps() {
         otpStore.entrySet().removeIf(e -> e.getValue().isExpired());
+        long now = System.currentTimeMillis();
+        verifiedRegEmails.entrySet().removeIf(e -> (now - e.getValue()) > VERIFIED_EMAIL_TTL_MS);
     }
 
     private String generateSecureOtp() {
@@ -163,7 +167,56 @@ public class AuthService {
         otpStore.remove(key);
     }
 
-    /** Step 1 of Registration: Validate fields & send 6-digit OTP to user's Gmail before account creation. */
+    /** Phase 1 of Registration: Verify email ownership with a 6-digit OTP before account details are entered. */
+    public Map<String, Object> sendPreRegistrationEmailOtp(String rawEmail) {
+        ensureRegistrationOpen();
+        String email = normalizeEmail(rawEmail);
+        if (email == null || !EMAIL_PATTERN.matcher(email).matches()) {
+            throw new BadRequestException("Please enter a valid email address (e.g. name@gmail.com).");
+        }
+        if (userRepository.existsByEmail(email)) {
+            throw new BadRequestException("This email address is already registered. Please sign in instead.");
+        }
+
+        String code = generateSecureOtp();
+        otpStore.put(PREFIX_REG + email, new OtpEntry(code, System.currentTimeMillis(), OTP_VALIDITY_MS));
+        verifiedRegEmails.remove(email);
+
+        boolean emailDelivered = emailService.sendOtp(email, code, "Account Registration");
+        if (emailService.isConfigured() && !emailDelivered) {
+            otpStore.remove(PREFIX_REG + email);
+            throw new BadRequestException("Unable to send verification email to " + email + ". Please check your Gmail address.");
+        }
+
+        if (!emailService.isConfigured()) {
+            log.info("[HIREJOB REG OTP DEV] Pre-registration code for {}: [{}] (Valid 2 min)", email, code);
+        }
+
+        return Map.of(
+                "email", email,
+                "maskedEmail", EmailService.maskEmail(email),
+                "expiresInSeconds", 120,
+                "emailDelivered", emailDelivered,
+                "message", "Verification code sent to " + email);
+    }
+
+    /** Phase 1 confirmation: Verify the 6-digit OTP and unlock Phase 2 registration form for 15 minutes. */
+    public Map<String, Object> verifyPreRegistrationEmailOtp(String rawEmail, String code) {
+        ensureRegistrationOpen();
+        String email = normalizeEmail(rawEmail);
+        if (email == null || !EMAIL_PATTERN.matcher(email).matches()) {
+            throw new BadRequestException("Please enter a valid email address.");
+        }
+        verifyAndConsumeOtp(PREFIX_REG + email, code);
+        verifiedRegEmails.put(email, System.currentTimeMillis());
+
+        return Map.of(
+                "email", email,
+                "verified", true,
+                "message", "Email verified successfully. You can now complete your account details.");
+    }
+
+    /** Step 1 of Registration (legacy payload): Validate fields & send 6-digit OTP to user's Gmail before account creation. */
     public Map<String, Object> sendRegistrationOtp(RegisterRequest request) {
         ensureRegistrationOpen();
         String email = normalizeEmail(request.getEmail());
@@ -214,8 +267,15 @@ public class AuthService {
 
         // Prevent privilege escalation on public self-registration
         Role safeRole = request.getRole() == Role.ROLE_POSTER ? Role.ROLE_POSTER : Role.ROLE_CLIENT;
-        boolean hasOtp = request.getOtpCode() != null && !request.getOtpCode().isBlank();
-        if (hasOtp) {
+
+        Long verifiedAt = verifiedRegEmails.remove(email);
+        boolean verifiedRecently = verifiedAt != null
+                && (System.currentTimeMillis() - verifiedAt) <= VERIFIED_EMAIL_TTL_MS;
+        if (!verifiedRecently) {
+            boolean hasOtp = request.getOtpCode() != null && !request.getOtpCode().isBlank();
+            if (!hasOtp) {
+                throw new BadRequestException("Please verify your email address with the 6-digit OTP code first.");
+            }
             verifyAndConsumeOtp(PREFIX_REG + email, request.getOtpCode());
         }
 
@@ -225,17 +285,12 @@ public class AuthService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .phone(normalizedPhone.isEmpty() ? null : normalizedPhone)
                 .role(safeRole)
-                .emailVerified(hasOtp)
+                .emailVerified(true)
                 .twoFactorEnabled(false)
+                .active(true)
                 .build();
 
         user = userRepository.save(user);
-
-        if (!hasOtp) {
-            String code = generateSecureOtp();
-            otpStore.put(PREFIX_EMAIL + user.getEmail(), new OtpEntry(code, System.currentTimeMillis(), OTP_VALIDITY_MS));
-            emailService.sendOtp(user.getEmail(), code, "Email Verification");
-        }
 
         String token = issueTokenForUser(user);
         return AuthResponse.builder()
@@ -246,10 +301,29 @@ public class AuthService {
 
     public AuthResponse login(LoginRequest request) {
         String identifier = request.getEmail() != null ? request.getEmail().trim() : "";
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(identifier, request.getPassword()));
+        if (identifier.isEmpty()) {
+            throw new BadRequestException("Please enter your email address or phone number.");
+        }
+        if (identifier.contains("@")) {
+            if (!EMAIL_PATTERN.matcher(identifier.toLowerCase(Locale.ROOT)).matches()) {
+                throw new BadRequestException("Please enter a valid email address (e.g. name@gmail.com).");
+            }
+        } else {
+            String digits = identifier.replaceAll("[^0-9]", "");
+            if (digits.length() < 9 || !PHONE_PATTERN.matcher(identifier).matches()) {
+                throw new BadRequestException("Please enter a valid email address or mobile phone number.");
+            }
+        }
+
+        if (request.getPassword() == null || request.getPassword().isEmpty()) {
+            throw new BadRequestException("Please enter your password.");
+        }
 
         User user = findUserByIdentifier(identifier);
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new BadRequestException("Incorrect password. Please try again or click Forgot password.");
+        }
 
         if (Boolean.TRUE.equals(user.getTwoFactorEnabled())) {
             String tempOtp = generateSecureOtp();
@@ -383,10 +457,6 @@ public class AuthService {
         if (existing != null && Boolean.FALSE.equals(existing.getActive())) {
             throw new BadRequestException("This account has been suspended by the administrator.");
         }
-        if (existing != null && existing.getRole() == Role.ROLE_ADMIN) {
-            // Company/admin accounts must use password sign-in (+ optional 2FA), like major platforms.
-            throw new BadRequestException("This is a company account. Please sign in with email and password.");
-        }
         if (existing == null) {
             ensureRegistrationOpen();
         }
@@ -412,13 +482,18 @@ public class AuthService {
         if (Boolean.TRUE.equals(user.getTwoFactorEnabled())) {
             String tempOtp = generateSecureOtp();
             otpStore.put(PREFIX_2FA + user.getEmail(), new OtpEntry(tempOtp, System.currentTimeMillis(), OTP_VALIDITY_MS));
-            emailService.sendOtp(user.getEmail(), tempOtp, "Two-Factor Authentication");
+            boolean emailDelivered = emailService.sendOtp(user.getEmail(), tempOtp, "Two-Factor Authentication");
+            boolean smsDelivered = "SMS_OTP".equalsIgnoreCase(user.getTwoFactorType())
+                    && user.getPhone() != null
+                    && smsService.sendOtp(user.getPhone(), tempOtp);
 
             return AuthResponse.builder()
                     .twoFactorRequired(true)
                     .twoFactorType(user.getTwoFactorType() != null ? user.getTwoFactorType() : "EMAIL_OTP")
                     .maskedEmail(EmailService.maskEmail(user.getEmail()))
                     .expiresInSeconds(120L)
+                    .emailDelivered(emailDelivered)
+                    .smsDelivered(smsDelivered)
                     .tempToken(UUID.randomUUID().toString())
                     .user(mapToUserResponse(user))
                     .build();

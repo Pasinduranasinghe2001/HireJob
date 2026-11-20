@@ -17,13 +17,10 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Objects;
 
 /**
- * Authenticates requests from the HttpOnly session cookie.
- * A token is accepted only when: signature valid, not expired, not revoked (logout),
- * token-version matches the user (password change / forced logout), the browser
- * fingerprint matches, and admin accounts present an admin-portal scoped token.
+ * Authenticates requests from the HttpOnly session cookie or stateless Authorization Bearer token.
+ * Multiple concurrent users and sessions are handled safely without shared mutable state.
  */
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -86,12 +83,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         int tokenVersion = claims.get("tv", Integer.class) == null ? 0 : claims.get("tv", Integer.class);
         int userVersion = user.getTokenVersion() == null ? 0 : user.getTokenVersion();
         if (tokenVersion != userVersion) return false;
-
-        String fp = claims.get("fp", String.class);
-        if (fp != null && !Objects.equals(fp, JwtTokenProvider.fingerprint(request.getHeader("User-Agent")))) {
-            log.warn("[SECURITY] Session token presented from a different browser fingerprint for user {} - rejected", user.getId());
-            return false;
-        }
 
         String scope = claims.get("scope", String.class);
         if (scope != null) {

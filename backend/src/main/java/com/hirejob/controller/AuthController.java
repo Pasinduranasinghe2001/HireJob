@@ -33,6 +33,20 @@ public class AuthController {
                 "clientId", clientId == null ? "" : clientId)));
     }
 
+    @PostMapping("/register/send-email-otp")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> sendPreRegistrationEmailOtp(
+            @Valid @RequestBody OtpRequests.Identifier request) {
+        Map<String, Object> result = authService.sendPreRegistrationEmailOtp(request.getIdentifier());
+        return ResponseEntity.ok(ApiResponse.success("Verification code sent to your email", result));
+    }
+
+    @PostMapping("/register/verify-email-otp")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> verifyPreRegistrationEmailOtp(
+            @Valid @RequestBody OtpRequests.VerifyCode request) {
+        Map<String, Object> result = authService.verifyPreRegistrationEmailOtp(request.getIdentifier(), request.getCode());
+        return ResponseEntity.ok(ApiResponse.success("Email verified successfully", result));
+    }
+
     @PostMapping("/register/send-otp")
     public ResponseEntity<ApiResponse<Map<String, Object>>> sendRegistrationOtp(@Valid @RequestBody RegisterRequest request) {
         Map<String, Object> result = authService.sendRegistrationOtp(request);

@@ -14,6 +14,6 @@ public class TwoFactorToggleRequest {
     @NotNull
     private Boolean enabled;
 
-    @Pattern(regexp = "^(EMAIL_OTP|SMS_OTP)?$", message = "Unsupported 2FA method")
+    @Pattern(regexp = "^(EMAIL_OTP|SMS_OTP|PASSKEY)?$", message = "Unsupported 2FA method")
     private String twoFactorType;
 }

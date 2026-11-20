@@ -36,7 +36,14 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const reqUrl: string = error?.config?.url || '';
+    const isCredentialCheck =
+      reqUrl.includes('/auth/login') ||
+      reqUrl.includes('/auth/register') ||
+      reqUrl.includes('/auth/google') ||
+      reqUrl.includes('/auth/verify-2fa') ||
+      reqUrl.includes('/users/me/password');
+    if (error.response?.status === 401 && !isCredentialCheck) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       if (window.location.pathname !== '/login') {

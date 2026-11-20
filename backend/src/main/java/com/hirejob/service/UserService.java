@@ -6,6 +6,7 @@ import com.hirejob.exception.BadRequestException;
 import com.hirejob.exception.ResourceNotFoundException;
 import com.hirejob.model.entity.User;
 import com.hirejob.repository.UserRepository;
+import com.hirejob.security.PhoneNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -31,16 +32,20 @@ public class UserService {
             throw new BadRequestException("New password and confirmation do not match");
         }
 
-        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
-            throw new BadRequestException("Current password is incorrect");
-        }
+        boolean isGoogleOnlySet = user.getGoogleId() != null
+                && (request.getCurrentPassword() == null || request.getCurrentPassword().isBlank());
 
-        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
-            throw new BadRequestException("New password cannot be the same as your current password");
+        if (!isGoogleOnlySet) {
+            if (request.getCurrentPassword() == null
+                    || !passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+                throw new BadRequestException("Current password is incorrect");
+            }
+            if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+                throw new BadRequestException("New password cannot be the same as your current password");
+            }
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-        user.setTokenVersion(user.getTokenVersion() == null ? 1 : user.getTokenVersion() + 1);
         userRepository.save(user);
     }
 
@@ -60,7 +65,7 @@ public class UserService {
             if (!p.isEmpty() && !p.matches("^\\+?[0-9 ()-]{7,20}$")) {
                 throw new BadRequestException("Invalid phone number");
             }
-            user.setPhone(p);
+            user.setPhone(p.isEmpty() ? null : PhoneNormalizer.normalizeForStorage(p));
         }
 
         user = userRepository.save(user);

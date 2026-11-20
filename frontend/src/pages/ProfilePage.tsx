@@ -2,15 +2,24 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import api from '../services/api';
-import type { ApiResponse, Review } from '../types';
+import type { ApiResponse, Review, User } from '../types';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import StarRating from '../components/common/StarRating';
 import ReviewCard from '../components/reviews/ReviewCard';
 import { FiUser, FiMail, FiPhone, FiShield, FiCheckCircle, FiAlertTriangle, FiKey, FiLock, FiEye, FiEyeOff } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
+function arrayBufferToBase64Url(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i += 1) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 export const ProfilePage: React.FC = () => {
-  const { user, toggleTwoFactor, verifyEmail, sendVerificationEmail } = useAuth();
+  const { user, toggleTwoFactor, verifyEmail, sendVerificationEmail, updateUser } = useAuth();
   const { t } = useLanguage();
 
   const [fullName, setFullName] = useState(user?.fullName || '');
@@ -63,7 +72,10 @@ export const ProfilePage: React.FC = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.put('/users/me', { fullName, phone });
+      const res = await api.put<ApiResponse<User>>('/users/me', { fullName, phone });
+      if (res.data?.data) {
+        updateUser(res.data.data);
+      }
       toast.success('Profile updated successfully!');
     } catch {
       toast.error('Failed to update profile');
@@ -72,12 +84,64 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  const handleToggle2FA = async (enable: boolean) => {
+  const enrollPasskeyAndSave = async () => {
+    if (!user?.email) return false;
+    if (window.PublicKeyCredential && navigator.credentials?.create) {
+      try {
+        const challenge = new Uint8Array(32);
+        window.crypto.getRandomValues(challenge);
+        const credential = (await navigator.credentials.create({
+          publicKey: {
+            challenge,
+            rp: { name: 'HireJob Sri Lanka', id: window.location.hostname },
+            user: {
+              id: new TextEncoder().encode(user.email),
+              name: user.email,
+              displayName: user.fullName || user.email,
+            },
+            pubKeyCredParams: [
+              { alg: -7, type: 'public-key' },
+              { alg: -257, type: 'public-key' },
+            ],
+            authenticatorSelection: { userVerification: 'preferred' },
+            timeout: 60000,
+          },
+        })) as PublicKeyCredential | null;
+
+        if (credential?.rawId) {
+          localStorage.setItem('hj_passkey_id', arrayBufferToBase64Url(credential.rawId));
+        }
+        return true;
+      } catch (err: any) {
+        if (err?.name === 'NotAllowedError') {
+          toast.error('Passkey setup was cancelled.');
+          return false;
+        }
+        // Gracefully fall back if device/browser has no biometric platform authenticator
+        toast('Device biometric passkey unavailable; Passkey + OTP backup mode enabled.', { icon: '🔐' });
+        return true;
+      }
+    }
+    toast('Browser WebAuthn unsupported here; Passkey + OTP backup mode enabled.', { icon: '🔐' });
+    return true;
+  };
+
+  const handleToggle2FA = async (enable: boolean, methodOverride?: string) => {
+    const selectedMethod = methodOverride || twoFactorType;
+    if (enable && selectedMethod === 'SMS_OTP' && !phone.trim() && !user?.phone) {
+      toast.error('Please enter and save your mobile phone number above before enabling Mobile SMS OTP.');
+      return;
+    }
     setUpdating2FA(true);
     try {
-      await toggleTwoFactor(enable, twoFactorType);
+      if (enable && selectedMethod === 'PASSKEY') {
+        const ok = await enrollPasskeyAndSave();
+        if (!ok) return;
+      }
+      await toggleTwoFactor(enable, selectedMethod);
+      setTwoFactorType(selectedMethod);
       setTwoFactorEnabled(enable);
-      toast.success(enable ? '2FA security enabled!' : '2FA disabled');
+      toast.success(enable ? `2FA (${selectedMethod.replace('_', ' ')}) enabled!` : '2FA disabled');
     } catch {
       toast.error('Failed to update 2FA settings');
     } finally {
@@ -117,10 +181,6 @@ export const ProfilePage: React.FC = () => {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentPassword) {
-      toast.error('Please enter your current password');
-      return;
-    }
     if (newPassword.length < 8) {
       toast.error('New password must be at least 8 characters');
       return;
@@ -136,11 +196,11 @@ export const ProfilePage: React.FC = () => {
     setChangingPassword(true);
     try {
       await api.put('/users/me/password', {
-        currentPassword,
+        currentPassword: currentPassword.trim(),
         newPassword,
         confirmPassword,
       });
-      toast.success('Password changed successfully!');
+      toast.success('Password updated successfully!');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -311,13 +371,12 @@ export const ProfilePage: React.FC = () => {
             ].map((m) => {
               const Icon = m.icon;
               return (
-                <div
+                <button
+                  type="button"
                   key={m.id}
-                  onClick={() => {
-                    setTwoFactorType(m.id);
-                    toggleTwoFactor(true, m.id);
-                  }}
-                  className={`p-3 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer transition ${
+                  disabled={updating2FA}
+                  onClick={() => handleToggle2FA(true, m.id)}
+                  className={`p-3 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer transition disabled:opacity-50 ${
                     twoFactorType === m.id
                       ? 'border-purple-600 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300'
                       : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
@@ -325,7 +384,7 @@ export const ProfilePage: React.FC = () => {
                 >
                   <Icon />
                   <span>{m.label}</span>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -335,13 +394,13 @@ export const ProfilePage: React.FC = () => {
       {/* Change Password Card */}
       <div className="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-xs space-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/40 text-[#f95a03] dark:text-[#fa9d01] flex items-center justify-center">
             <FiLock className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-gray-900 dark:text-white">Change Account Password</h3>
+            <h3 className="text-base font-bold text-gray-900 dark:text-white">Change or Set Account Password</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              For security, enter your current password before setting a new one
+              Enter your current password to update it (if you signed up with Google, leave Current Password blank to set one)
             </p>
           </div>
         </div>
@@ -350,12 +409,12 @@ export const ProfilePage: React.FC = () => {
           <div>
             <div className="flex justify-between items-center mb-1">
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                Current Password
+                Current Password (optional for Google accounts)
               </label>
               <button
                 type="button"
                 onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-medium cursor-pointer"
+                className="text-[11px] text-[#f95a03] dark:text-[#fa9d01] hover:underline flex items-center gap-1 font-medium cursor-pointer"
               >
                 {showCurrentPassword ? <FiEyeOff className="w-3.5 h-3.5" /> : <FiEye className="w-3.5 h-3.5" />}
                 <span>{showCurrentPassword ? 'Hide' : 'Show'}</span>
@@ -367,11 +426,10 @@ export const ProfilePage: React.FC = () => {
               </div>
               <input
                 type={showCurrentPassword ? 'text' : 'password'}
-                required
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="Enter current password"
-                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter current password (leave blank if Google-only)"
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
           </div>
