@@ -17,6 +17,7 @@ public class CustomUserDetails implements UserDetails {
     private Long id;
     private String email;
     private String password;
+    private boolean enabled;
     private Collection<? extends GrantedAuthority> authorities;
 
     public static CustomUserDetails create(User user) {
@@ -28,6 +29,7 @@ public class CustomUserDetails implements UserDetails {
                 user.getId(),
                 user.getEmail(),
                 user.getPassword(),
+                !Boolean.FALSE.equals(user.getActive()),
                 authorities
         );
     }
@@ -54,6 +56,6 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return enabled;
     }
 }

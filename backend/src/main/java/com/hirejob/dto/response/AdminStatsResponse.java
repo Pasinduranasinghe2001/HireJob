@@ -16,9 +16,11 @@ public class AdminStatsResponse {
     private long totalUsers;
     private long totalPosters;
     private long totalClients;
+    private long totalAdmins;
     private long totalActiveJobs;
     private long totalPriorityJobs;
     private long totalFlaggedSpamJobs;
+    private long totalApplications;
     private BigDecimal totalCompanyRevenue;
 }
 

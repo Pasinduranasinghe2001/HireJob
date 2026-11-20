@@ -7,6 +7,7 @@ import com.hirejob.exception.BadRequestException;
 import com.hirejob.exception.ResourceNotFoundException;
 import com.hirejob.model.entity.User;
 import com.hirejob.model.enums.Role;
+import com.hirejob.repository.PlatformSettingRepository;
 import com.hirejob.repository.UserRepository;
 import com.hirejob.security.GoogleTokenVerifier;
 import com.hirejob.security.JwtTokenProvider;
@@ -47,6 +48,7 @@ public class AuthService {
     private static final String PREFIX_2FA = "2FA:";
 
     private final UserRepository userRepository;
+    private final PlatformSettingRepository platformSettingRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final AuthenticationManager authenticationManager;
@@ -112,16 +114,30 @@ public class AuthService {
         if (trimmed.isEmpty()) {
             throw new BadRequestException("Please enter your email or phone number.");
         }
+        User user;
         if (trimmed.contains("@")) {
-            return userRepository.findByEmail(normalizeEmail(trimmed))
+            user = userRepository.findByEmail(normalizeEmail(trimmed))
                     .orElseThrow(() -> new BadRequestException("No account found with that email address."));
+        } else {
+            List<String> phoneCandidates = PhoneNormalizer.candidates(trimmed);
+            user = (phoneCandidates.isEmpty()
+                    ? java.util.Optional.<User>empty()
+                    : userRepository.findFirstByPhoneIn(phoneCandidates))
+                    .or(() -> userRepository.findByEmail(normalizeEmail(trimmed)))
+                    .orElseThrow(() -> new BadRequestException("No account found with that phone number or email."));
         }
-        List<String> phoneCandidates = PhoneNormalizer.candidates(trimmed);
-        return (phoneCandidates.isEmpty()
-                ? java.util.Optional.<User>empty()
-                : userRepository.findFirstByPhoneIn(phoneCandidates))
-                .or(() -> userRepository.findByEmail(normalizeEmail(trimmed)))
-                .orElseThrow(() -> new BadRequestException("No account found with that phone number or email."));
+        if (Boolean.FALSE.equals(user.getActive())) {
+            throw new BadRequestException("This account has been suspended by the administrator.");
+        }
+        return user;
+    }
+
+    private void ensureRegistrationOpen() {
+        platformSettingRepository.findById(1L).ifPresent(s -> {
+            if (Boolean.FALSE.equals(s.getRegistrationEnabled())) {
+                throw new BadRequestException("New account registration is currently paused by the administrator.");
+            }
+        });
     }
 
     private void verifyAndConsumeOtp(String key, String submittedCode) {
@@ -149,6 +165,7 @@ public class AuthService {
 
     /** Step 1 of Registration: Validate fields & send 6-digit OTP to user's Gmail before account creation. */
     public Map<String, Object> sendRegistrationOtp(RegisterRequest request) {
+        ensureRegistrationOpen();
         String email = normalizeEmail(request.getEmail());
         if (userRepository.existsByEmail(email)) {
             throw new BadRequestException("This email address is already registered. Please log in instead.");
@@ -183,6 +200,7 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
+        ensureRegistrationOpen();
         String email = normalizeEmail(request.getEmail());
         if (userRepository.existsByEmail(email)) {
             throw new BadRequestException("Email address is already registered");
@@ -362,9 +380,15 @@ public class AuthService {
         final String finalGoogleId = gu.sub();
 
         User existing = userRepository.findByEmail(finalEmail).orElse(null);
+        if (existing != null && Boolean.FALSE.equals(existing.getActive())) {
+            throw new BadRequestException("This account has been suspended by the administrator.");
+        }
         if (existing != null && existing.getRole() == Role.ROLE_ADMIN) {
             // Company/admin accounts must use password sign-in (+ optional 2FA), like major platforms.
             throw new BadRequestException("This is a company account. Please sign in with email and password.");
+        }
+        if (existing == null) {
+            ensureRegistrationOpen();
         }
         if (existing != null && existing.getGoogleId() == null) {
             existing.setGoogleId(finalGoogleId);
@@ -377,11 +401,12 @@ public class AuthService {
                 .fullName(finalFullName)
                 .email(finalEmail)
                 .password(passwordEncoder.encode(UUID.randomUUID().toString()))
-                .role(Role.ROLE_CLIENT)
+                .role(Role.ROLE_POSTER)
                 .googleId(finalGoogleId)
                 .avatarUrl(finalAvatarUrl)
                 .emailVerified(true)
                 .twoFactorEnabled(false)
+                .active(true)
                 .build());
 
         if (Boolean.TRUE.equals(user.getTwoFactorEnabled())) {
@@ -497,6 +522,7 @@ public class AuthService {
                 .emailVerified(user.getEmailVerified())
                 .twoFactorEnabled(user.getTwoFactorEnabled())
                 .twoFactorType(user.getTwoFactorType())
+                .active(!Boolean.FALSE.equals(user.getActive()))
                 .createdAt(user.getCreatedAt())
                 .build();
     }

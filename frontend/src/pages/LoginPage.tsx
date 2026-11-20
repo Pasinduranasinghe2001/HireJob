@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { authService } from '../services/auth.service';
+import type { User } from '../types';
 import api from '../services/api';
 import GoogleSignInButton from '../components/common/GoogleSignInButton';
 import {
@@ -33,7 +34,17 @@ export const LoginPage: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as any)?.from?.pathname || '/dashboard';
+
+  const getDestination = (loggedUser?: User | null): string => {
+    const requested = (location.state as any)?.from?.pathname;
+    if (loggedUser?.role === 'ROLE_ADMIN') {
+      return requested && requested.startsWith('/admin') ? requested : '/admin';
+    }
+    if (requested && requested !== '/login' && requested !== '/register' && !requested.startsWith('/admin')) {
+      return requested;
+    }
+    return '/dashboard';
+  };
 
   const [activeTab, setActiveTab] = useState<LoginTab>('password');
   const [loading, setLoading] = useState(false);
@@ -44,8 +55,8 @@ export const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Passwordless OTP login state (Daraz Phone/Email code flow)
-  const [otpInputMode, setOtpInputMode] = useState<'phone' | 'email'>('phone');
+  // Passwordless OTP login state (Phone/Email Code tab)
+  const [otpInputMode, setOtpInputMode] = useState<'phone' | 'email'>('email');
   const [otpPhone, setOtpPhone] = useState('');
   const [otpEmail, setOtpEmail] = useState('');
   const [otpSent, setOtpSent] = useState(false);
@@ -72,7 +83,6 @@ export const LoginPage: React.FC = () => {
   const [forgotMaskedEmail, setForgotMaskedEmail] = useState('');
   const [forgotTimeLeft, setForgotTimeLeft] = useState(120);
 
-  // Countdown timers (120 seconds / 2 minutes)
   useEffect(() => {
     if (!show2FAModal || timeLeft <= 0) return;
     const id = setInterval(() => setTimeLeft((p) => Math.max(0, p - 1)), 1000);
@@ -106,8 +116,8 @@ export const LoginPage: React.FC = () => {
         toast('Verification code sent to your email / phone.', { icon: '🔐' });
         return;
       }
-      toast.success('Welcome back!');
-      navigate(from, { replace: true });
+      toast.success(res.user?.role === 'ROLE_ADMIN' ? 'Welcome to Company Admin Console!' : 'Welcome back!');
+      navigate(getDestination(res.user), { replace: true });
     } catch (err: any) {
       const msg = extractApiError(err, 'Invalid phone/email or password.');
       setError(msg);
@@ -125,7 +135,7 @@ export const LoginPage: React.FC = () => {
     if (e) e.preventDefault();
     const target = resolveOtpLoginIdentifier();
     if (!target) {
-      setError(otpInputMode === 'phone' ? 'Please enter your Sri Lankan mobile number' : 'Please enter your Gmail address');
+      setError(otpInputMode === 'phone' ? 'Please enter your mobile number' : 'Please enter your Gmail address');
       return;
     }
     setError(null);
@@ -159,9 +169,9 @@ export const LoginPage: React.FC = () => {
     setError(null);
     setLoading(true);
     try {
-      await verifyOtpLogin(resolveOtpLoginIdentifier(), loginOtpCode.trim());
-      toast.success('Welcome back!');
-      navigate(from, { replace: true });
+      const res = await verifyOtpLogin(resolveOtpLoginIdentifier(), loginOtpCode.trim());
+      toast.success(res.user?.role === 'ROLE_ADMIN' ? 'Welcome to Company Admin Console!' : 'Welcome back!');
+      navigate(getDestination(res.user), { replace: true });
     } catch (err: any) {
       const msg = extractApiError(err, 'Invalid or expired verification code.');
       setError(msg);
@@ -185,7 +195,7 @@ export const LoginPage: React.FC = () => {
         return;
       }
       toast.success(`Signed in as ${res.user?.fullName || 'Google user'}!`);
-      navigate(from, { replace: true });
+      navigate(getDestination(res.user), { replace: true });
     } catch (err: any) {
       const msg = extractApiError(err, 'Google sign-in failed');
       setError(msg);
@@ -207,10 +217,10 @@ export const LoginPage: React.FC = () => {
     }
     setLoading(true);
     try {
-      await verifyTwoFactor(twoFactorEmail, otpCode.trim());
+      const res = await verifyTwoFactor(twoFactorEmail, otpCode.trim());
       toast.success('Two-factor verification successful!');
       setShow2FAModal(false);
-      navigate(from, { replace: true });
+      navigate(getDestination(res.user), { replace: true });
     } catch (err: any) {
       toast.error(extractApiError(err, 'Invalid 2FA code.'));
     } finally {
@@ -236,10 +246,10 @@ export const LoginPage: React.FC = () => {
   const handleVerifyPasskey = async () => {
     setLoading(true);
     try {
-      await verifyTwoFactor(twoFactorEmail, 'passkey_verified');
+      const res = await verifyTwoFactor(twoFactorEmail, 'passkey_verified');
       toast.success('Passkey / Biometric verified successfully!');
       setShow2FAModal(false);
-      navigate(from, { replace: true });
+      navigate(getDestination(res.user), { replace: true });
     } catch {
       toast.error('Passkey verification failed');
     } finally {
@@ -271,7 +281,7 @@ export const LoginPage: React.FC = () => {
       setForgotStep('reset');
       toast.success(`Reset code sent to ${res.maskedEmail || 'your email'}`);
     } catch (err: any) {
-      toast.error(extractApiError(err, 'Account not found'));
+      toast.error(extractApiError(err, 'Could not send reset code.'));
     } finally {
       setLoading(false);
     }
@@ -313,7 +323,7 @@ export const LoginPage: React.FC = () => {
   return (
     <div className="min-h-[82vh] flex items-center justify-center py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-6 bg-white dark:bg-gray-800 p-7 sm:p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-        {/* Top Mode Tabs (Inspired by Daraz: Password | Verification Code) */}
+        {/* Top Mode Tabs */}
         <div className="text-center space-y-4">
           <div className="w-11 h-11 bg-blue-600 rounded-xl flex items-center justify-center text-white mx-auto shadow-md">
             <FiBriefcase className="w-5 h-5" />
@@ -419,19 +429,19 @@ export const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 rounded-xl shadow-md text-sm font-bold tracking-wide text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition disabled:opacity-50 cursor-pointer"
+              className="w-full py-3 px-4 rounded-full shadow-md text-sm font-bold tracking-wide text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition disabled:opacity-50 cursor-pointer"
             >
               {loading ? 'Signing in...' : 'LOGIN'}
             </button>
           </form>
         ) : (
-          /* TAB 2: Passwordless OTP Login (Phone LK +94 or Email Code) */
+          /* TAB 2: Passwordless OTP Login */
           <div className="space-y-4">
             {!otpSent ? (
               <form className="space-y-4" onSubmit={handleSendOtpLogin}>
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    {otpInputMode === 'phone' ? 'Sri Lanka Mobile Number' : 'Registered Email'}
+                    {otpInputMode === 'phone' ? 'Mobile Number (+94)' : 'Registered Email'}
                   </label>
                   <button
                     type="button"
@@ -445,7 +455,7 @@ export const LoginPage: React.FC = () => {
                 {otpInputMode === 'phone' ? (
                   <div className="flex gap-2">
                     <div className="px-3 py-2.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-200 shrink-0 select-none">
-                      🇱🇰 +94
+                      +94
                     </div>
                     <div className="relative flex-1">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
@@ -484,7 +494,7 @@ export const LoginPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 px-4 rounded-xl shadow-md text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 rounded-full shadow-md text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
                 >
                   <FiSmartphone className="w-4 h-4" />
                   <span>{loading ? 'Sending code...' : 'Send Verification Code'}</span>
@@ -543,7 +553,7 @@ export const LoginPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || otpTimeLeft <= 0 || loginOtpCode.length !== 6}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-md transition disabled:opacity-50 cursor-pointer"
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-full text-sm shadow-md transition disabled:opacity-50 cursor-pointer"
                 >
                   {loading ? 'Verifying...' : 'Verify & Log In'}
                 </button>
@@ -567,8 +577,13 @@ export const LoginPage: React.FC = () => {
           <div className="grow border-t border-gray-200 dark:border-gray-700" />
         </div>
 
-        {/* Official Google Sign-In using real browser Gmail accounts */}
-        <GoogleSignInButton onCredential={handleGoogleCredential} text="continue_with" disabled={loading} />
+        {/* Visible Google Sign-In button using real browser Gmail accounts */}
+        <GoogleSignInButton
+          onCredential={handleGoogleCredential}
+          text="continue_with"
+          label="Continue with Google"
+          disabled={loading}
+        />
       </div>
 
       {/* Forgot Password Modal */}
@@ -692,7 +707,7 @@ export const LoginPage: React.FC = () => {
         </div>
       )}
 
-      {/* 2FA Verification Modal with reducing valid time range and Resend option */}
+      {/* 2FA Verification Modal */}
       {show2FAModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-gray-100 dark:border-gray-700 text-center">
@@ -746,7 +761,7 @@ export const LoginPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || timeLeft <= 0}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-md transition disabled:opacity-50 cursor-pointer"
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-full text-sm shadow-md transition disabled:opacity-50 cursor-pointer"
                 >
                   {loading ? 'Verifying...' : t('auth.verifyOtp')}
                 </button>
@@ -754,7 +769,7 @@ export const LoginPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleVerifyPasskey}
-                  className="w-full py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold rounded-full text-xs transition flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <FiKey />
                   {t('auth.passkey')}

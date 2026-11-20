@@ -23,5 +23,6 @@ public class UserResponse {
     private Boolean emailVerified;
     private Boolean twoFactorEnabled;
     private String twoFactorType;
+    private Boolean active;
     private LocalDateTime createdAt;
 }

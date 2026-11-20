@@ -53,9 +53,9 @@ spring:
       mail:
         smtp:
           auth: true
-          connectiontimeout: 10000
-          timeout: 10000
-          writetimeout: 10000
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
           starttls:
             enable: true
             required: true
@@ -77,6 +77,12 @@ app:
     allowed-ips: ${ADMIN_ALLOWED_IPS:}      # optional comma separated allow-list
   google:
     client-id: ${GOOGLE_CLIENT_ID:}
+  email:
+    brevo-api-key: ${BREVO_API_KEY:}
+    resend-api-key: ${RESEND_API_KEY:}
+    webhook-url: ${EMAIL_WEBHOOK_URL:}
+    from-email: ${EMAIL_FROM:${SPRING_MAIL_USERNAME:pasinduworkwebsite@gmail.com}}
+    from-name: ${EMAIL_FROM_NAME:HireJob Sri Lanka}
   sms:
     twilio-account-sid: ${TWILIO_ACCOUNT_SID:}
     twilio-auth-token: ${TWILIO_AUTH_TOKEN:}

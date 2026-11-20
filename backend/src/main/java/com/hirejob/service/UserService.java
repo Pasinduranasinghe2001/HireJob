@@ -78,6 +78,7 @@ public class UserService {
                 .emailVerified(user.getEmailVerified())
                 .twoFactorEnabled(user.getTwoFactorEnabled())
                 .twoFactorType(user.getTwoFactorType())
+                .active(!Boolean.FALSE.equals(user.getActive()))
                 .createdAt(user.getCreatedAt())
                 .build();
     }

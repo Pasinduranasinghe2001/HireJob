@@ -64,7 +64,7 @@ export const HomePage: React.FC = () => {
         <div className="max-w-5xl mx-auto text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 text-xs font-semibold uppercase tracking-wider">
             <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-            Sri Lanka's Direct Hire & Service Marketplace 🇱🇰
+            Sri Lanka's Direct Hire & Service Marketplace
           </div>
 
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white tracking-tight leading-tight">

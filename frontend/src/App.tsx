@@ -59,11 +59,15 @@ function App() {
                   <Route path="jobs" element={<JobsPage />} />
                   <Route path="jobs/:id" element={<JobDetailPage />} />
 
-                  {/* Protected User & Admin Routes */}
+                  {/* Protected Authenticated User Routes */}
                   <Route element={<ProtectedRoute />}>
                     <Route path="post-job" element={<PostJobPage />} />
                     <Route path="dashboard" element={<DashboardPage />} />
                     <Route path="profile" element={<ProfilePage />} />
+                  </Route>
+
+                  {/* Protected Company Admin Route */}
+                  <Route element={<ProtectedRoute allowedRoles={['ROLE_ADMIN']} />}>
                     <Route path="admin" element={<AdminPage />} />
                   </Route>
 

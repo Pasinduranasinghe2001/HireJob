@@ -45,7 +45,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (claims != null && !cookieService.isRevoked(claims.getId())) {
                     Long userId = Long.parseLong(claims.getSubject());
                     User user = userRepository.findById(userId).orElse(null);
-                    if (user != null && isTokenAcceptable(claims, user, request)) {
+                    if (user != null && !Boolean.FALSE.equals(user.getActive()) && isTokenAcceptable(claims, user, request)) {
                         CustomUserDetails details = CustomUserDetails.create(user);
                         UsernamePasswordAuthenticationToken authentication =
                                 new UsernamePasswordAuthenticationToken(details, null, details.getAuthorities());

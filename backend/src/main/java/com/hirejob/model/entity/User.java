@@ -53,6 +53,10 @@ public class User {
 
     private String googleId;
 
+    @Column(columnDefinition = "boolean default true")
+    @Builder.Default
+    private Boolean active = true;
+
     /** Incremented to invalidate every active session of this user (password change, forced logout). */
     @JsonIgnore
     @Builder.Default

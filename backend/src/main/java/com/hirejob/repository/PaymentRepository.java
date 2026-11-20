@@ -14,6 +14,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     List<Payment> findByUserIdOrderByCreatedAtDesc(Long userId);
 
+    List<Payment> findByJobId(Long jobId);
+
     List<Payment> findByStatusOrderByCreatedAtDesc(PaymentStatus status);
 
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = 'COMPLETED'")

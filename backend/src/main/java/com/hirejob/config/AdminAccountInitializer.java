@@ -61,6 +61,7 @@ public class AdminAccountInitializer implements ApplicationRunner {
                     .role(Role.ROLE_ADMIN)
                     .emailVerified(true)
                     .twoFactorEnabled(false)
+                    .active(true)
                     .build();
             userRepository.save(admin);
             log.info("[ADMIN] Company administrator account created for {}", email);
@@ -68,6 +69,10 @@ public class AdminAccountInitializer implements ApplicationRunner {
         }
 
         boolean changed = false;
+        if (Boolean.FALSE.equals(admin.getActive())) {
+            admin.setActive(true);
+            changed = true;
+        }
         if (admin.getRole() != Role.ROLE_ADMIN) {
             admin.setRole(Role.ROLE_ADMIN);
             changed = true;

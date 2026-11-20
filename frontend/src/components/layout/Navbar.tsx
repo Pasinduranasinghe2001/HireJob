@@ -32,10 +32,10 @@ export const Navbar: React.FC = () => {
     navigate('/login');
   };
 
-  const languages: { code: Language; label: string; flag: string }[] = [
-    { code: 'en', label: 'English', flag: '🇬🇧' },
-    { code: 'si', label: 'සිංහල', flag: '🇱🇰' },
-    { code: 'ta', label: 'தமிழ்', flag: '🇱🇰' },
+  const languages: { code: Language; label: string }[] = [
+    { code: 'en', label: 'English' },
+    { code: 'si', label: 'සිංහල' },
+    { code: 'ta', label: 'தமிழ்' },
   ];
 
   const currentLangObj = languages.find((l) => l.code === language) || languages[0];
@@ -100,7 +100,7 @@ export const Navbar: React.FC = () => {
                 title={t('lang.select')}
               >
                 <FiGlobe className="w-3.5 h-3.5 text-blue-500" />
-                <span>{currentLangObj.flag} {currentLangObj.label}</span>
+                <span>{currentLangObj.label}</span>
               </button>
 
               {langDropdownOpen && (
@@ -112,11 +112,10 @@ export const Navbar: React.FC = () => {
                         setLanguage(l.code);
                         setLangDropdownOpen(false);
                       }}
-                      className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition ${
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer ${
                         language === l.code ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'
                       }`}
                     >
-                      <span>{l.flag}</span>
                       <span>{l.label}</span>
                     </button>
                   ))}
@@ -242,11 +241,11 @@ export const Navbar: React.FC = () => {
                 <button
                   key={l.code}
                   onClick={() => setLanguage(l.code)}
-                  className={`px-2 py-1 text-xs rounded-md ${
+                  className={`px-2.5 py-1 text-xs rounded-md ${
                     language === l.code ? 'bg-blue-600 text-white font-bold' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
                   }`}
                 >
-                  {l.flag} {l.label}
+                  {l.label}
                 </button>
               ))}
             </div>
