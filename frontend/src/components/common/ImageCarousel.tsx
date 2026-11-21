@@ -31,6 +31,7 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+  const touchStartX = React.useRef<number | null>(null);
 
   // Auto-play timer that swaps images one by one with a delay
   useEffect(() => {
@@ -70,6 +71,20 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
       className={`relative overflow-hidden group select-none ${className}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onTouchStart={(e) => {
+        touchStartX.current = e.touches[0]?.clientX ?? null;
+      }}
+      onTouchEnd={(e) => {
+        if (touchStartX.current === null || list.length <= 1) return;
+        const endX = e.changedTouches[0]?.clientX ?? touchStartX.current;
+        const delta = endX - touchStartX.current;
+        touchStartX.current = null;
+        if (delta > 40) {
+          setCurrentIndex((prev) => (prev - 1 + list.length) % list.length);
+        } else if (delta < -40) {
+          setCurrentIndex((prev) => (prev + 1) % list.length);
+        }
+      }}
     >
       {/* Images container */}
       <div className="w-full h-full relative">
@@ -101,7 +116,7 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
           {/* Left Arrow */}
           <button
             onClick={handlePrev}
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-black/50 hover:bg-black/75 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-sm cursor-pointer"
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-black/50 hover:bg-black/75 text-white flex items-center justify-center opacity-85 sm:opacity-0 sm:group-hover:opacity-100 transition shadow-sm cursor-pointer"
             aria-label="Previous photo"
           >
             <FiChevronLeft className="w-4 h-4" />
@@ -110,7 +125,7 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
           {/* Right Arrow */}
           <button
             onClick={handleNext}
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-black/50 hover:bg-black/75 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-sm cursor-pointer"
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-black/50 hover:bg-black/75 text-white flex items-center justify-center opacity-85 sm:opacity-0 sm:group-hover:opacity-100 transition shadow-sm cursor-pointer"
             aria-label="Next photo"
           >
             <FiChevronRight className="w-4 h-4" />

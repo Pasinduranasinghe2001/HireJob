@@ -82,7 +82,7 @@ interface GoogleSignInButtonProps {
  * Always renders a clean, standard neutral "[ G  Continue with Google ]" button
  * (never pre-showing a browser Gmail address or personalized chip), while placing
  * Google Identity Services' real interactive button as an invisible click overlay on top
- * so clicking anywhere launches authentic Google Sign-In.
+ * so clicking anywhere launches authentic Google Sign-In and auto-scales across screen sizes.
  */
 export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   onCredential,
@@ -93,12 +93,32 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const gsiContainerRef = useRef<HTMLDivElement>(null);
   const callbackRef = useRef(onCredential);
+  const lastRenderedWidthRef = useRef<number>(0);
   const [gsiReady, setGsiReady] = useState(false);
   const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     callbackRef.current = onCredential;
   }, [onCredential]);
+
+  const renderGsiOverlay = useCallback(() => {
+    if (!gsiContainerRef.current || !window.google?.accounts?.id) return;
+    const parentWidth = wrapperRef.current?.offsetWidth || 360;
+    const width = Math.min(Math.max(parentWidth, 220), 400);
+    if (Math.abs(width - lastRenderedWidthRef.current) < 4) return;
+    lastRenderedWidthRef.current = width;
+
+    gsiContainerRef.current.innerHTML = '';
+    window.google.accounts.id.renderButton(gsiContainerRef.current, {
+      type: 'standard',
+      theme: 'outline',
+      size: 'large',
+      text,
+      shape: 'pill',
+      logo_alignment: 'left',
+      width,
+    });
+  }, [text]);
 
   const initializeGoogleButton = useCallback(async (): Promise<'ready' | 'missing_client_id' | 'unreachable'> => {
     const { clientId, reachable } = await fetchClientId();
@@ -118,21 +138,11 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       context: text === 'signup_with' ? 'signup' : 'signin',
     });
 
-    gsiContainerRef.current.innerHTML = '';
-    const parentWidth = wrapperRef.current?.offsetWidth || 360;
-    const width = Math.min(Math.max(parentWidth, 240), 400);
-    window.google.accounts.id.renderButton(gsiContainerRef.current, {
-      type: 'standard',
-      theme: 'outline',
-      size: 'large',
-      text,
-      shape: 'pill',
-      logo_alignment: 'left',
-      width,
-    });
+    lastRenderedWidthRef.current = 0;
+    renderGsiOverlay();
     setGsiReady(true);
     return 'ready';
-  }, [text]);
+  }, [text, renderGsiOverlay]);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,6 +159,26 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       cancelled = true;
     };
   }, [initializeGoogleButton]);
+
+  useEffect(() => {
+    if (!gsiReady || !wrapperRef.current) return;
+    const el = wrapperRef.current;
+
+    const handleResize = () => renderGsiOverlay();
+    let observer: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(handleResize);
+      observer.observe(el);
+    }
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
+  }, [gsiReady, renderGsiOverlay]);
 
   const handleFallbackClick = async () => {
     if (disabled || checking) return;

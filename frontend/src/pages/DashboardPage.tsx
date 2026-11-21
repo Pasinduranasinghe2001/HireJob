@@ -157,7 +157,7 @@ export const DashboardPage: React.FC = () => {
 
       {/* Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="flex space-x-8">
+        <nav className="flex space-x-6 sm:space-x-8 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab('jobs')}
             className={`pb-4 px-1 text-sm font-semibold border-b-2 cursor-pointer transition ${
@@ -339,7 +339,7 @@ export const DashboardPage: React.FC = () => {
       {/* Applicants View Modal */}
       {selectedJobApplications && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-xl max-h-[85vh] flex flex-col border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full p-5 sm:p-6 space-y-4 shadow-xl max-h-[90dvh] flex flex-col border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-700">
               <div>
                 <h3 className="text-base font-bold text-gray-900 dark:text-white">

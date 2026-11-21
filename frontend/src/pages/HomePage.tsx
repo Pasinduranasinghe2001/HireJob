@@ -53,11 +53,11 @@ export const HomePage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-16 pb-16">
+    <div className="space-y-10 sm:space-y-16 pb-12 sm:pb-16">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-b from-blue-50/70 dark:from-gray-900 via-indigo-50/20 dark:via-gray-850 to-white dark:to-gray-900 pt-16 pb-20 px-4 sm:px-6 lg:px-8 border-b border-gray-100 dark:border-gray-800 transition-colors z-20">
+      <section className="relative bg-gradient-to-b from-blue-50/70 dark:from-gray-900 via-indigo-50/20 dark:via-gray-850 to-white dark:to-gray-900 pt-20 sm:pt-16 pb-12 sm:pb-20 px-4 sm:px-6 lg:px-8 border-b border-gray-100 dark:border-gray-800 transition-colors z-20 overflow-x-clip">
         {/* Interactive Hanging Ceiling Lamp (Pull Cord to toggle Dark/Light) */}
-        <div className="absolute top-0 right-4 sm:right-12 md:right-20">
+        <div className="absolute top-0 right-1 sm:right-6 md:right-12 lg:right-20">
           <HangingLamp />
         </div>
 
@@ -109,7 +109,7 @@ export const HomePage: React.FC = () => {
         {loading ? (
           <LoadingSpinner size="lg" />
         ) : featuredJobs.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
             {featuredJobs.map((job) => (
               <JobCard key={job.id} job={job} onRefresh={fetchRecentJobs} />
             ))}
@@ -139,7 +139,7 @@ export const HomePage: React.FC = () => {
       </section>
 
       {/* How Marketplace Works */}
-      <section className="bg-white dark:bg-gray-800 py-16 border-y border-gray-100 dark:border-gray-700">
+      <section className="bg-white dark:bg-gray-800 py-10 sm:py-16 border-y border-gray-100 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">

@@ -198,7 +198,7 @@ export const JobDetailPage: React.FC = () => {
 
         {/* Images Carousel - swaps automatically one by one */}
         {((job.imageUrls && job.imageUrls.length > 0) || job.imageUrl) && (
-          <div className="w-full h-72 sm:h-96 overflow-hidden bg-gray-100 dark:bg-gray-700">
+          <div className="w-full h-56 sm:h-80 md:h-96 overflow-hidden bg-gray-100 dark:bg-gray-700">
             <ImageCarousel
               images={job.imageUrls}
               singleImageUrl={job.imageUrl}
@@ -305,7 +305,7 @@ export const JobDetailPage: React.FC = () => {
               {contactPhone && (
                 <a
                   href={`tel:${contactPhone}`}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-md transition flex items-center gap-2"
+                  className="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-md transition flex items-center justify-center gap-2"
                 >
                   <FiPhone />
                   {t('job.call')} ({contactPhone})
@@ -316,7 +316,7 @@ export const JobDetailPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => toggleSave(job)}
-                className={`px-5 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-2 cursor-pointer shadow-xs ${
+                className={`w-full sm:w-auto px-5 py-3 rounded-xl text-sm font-semibold transition flex items-center justify-center gap-2 cursor-pointer shadow-xs ${
                   saved
                     ? 'bg-rose-500 text-white hover:bg-rose-600'
                     : 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 hover:bg-rose-100'
@@ -331,7 +331,7 @@ export const JobDetailPage: React.FC = () => {
                   href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Hi, I saw your service "${job.title}" on HireJob Sri Lanka and would like to inquire.`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm shadow-md transition flex items-center gap-2"
+                  className="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm shadow-md transition flex items-center justify-center gap-2"
                 >
                   <FaWhatsapp className="w-4 h-4" />
                   Chat on WhatsApp
@@ -341,7 +341,7 @@ export const JobDetailPage: React.FC = () => {
               {contactEmail && (
                 <a
                   href={`mailto:${contactEmail}?subject=HireJob Inquiry: ${encodeURIComponent(job.title)}`}
-                  className="px-5 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold rounded-xl text-sm transition flex items-center gap-2"
+                  className="w-full sm:w-auto px-5 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold rounded-xl text-sm transition flex items-center justify-center gap-2"
                 >
                   <FiMail />
                   Email Provider
@@ -351,7 +351,7 @@ export const JobDetailPage: React.FC = () => {
               {isAuthenticated && !isOwner && (
                 <button
                   onClick={() => setApplyModalOpen(true)}
-                  className="px-5 py-3 border border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-xl text-sm font-semibold transition flex items-center gap-2 cursor-pointer"
+                  className="w-full sm:w-auto px-5 py-3 border border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-xl text-sm font-semibold transition flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <FiSend />
                   {t('job.apply')}
@@ -427,7 +427,7 @@ export const JobDetailPage: React.FC = () => {
       {/* Apply Modal */}
       {applyModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full p-5 sm:p-6 space-y-4 shadow-xl max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-700">
               <h3 className="text-base font-bold text-gray-900 dark:text-white">Contact "{job.title}"</h3>
               <button

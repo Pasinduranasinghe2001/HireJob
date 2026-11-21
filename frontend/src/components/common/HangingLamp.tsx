@@ -16,7 +16,7 @@ export const HangingLamp: React.FC = () => {
   };
 
   return (
-    <div className="relative flex flex-col items-center select-none z-20 group">
+    <div className="relative flex flex-col items-center select-none z-20 group scale-75 sm:scale-90 md:scale-100 origin-top">
       {/* Ceiling Mount */}
       <div className="w-8 h-2 bg-gray-600 dark:bg-gray-500 rounded-t-sm shadow-xs" />
 
@@ -59,7 +59,7 @@ export const HangingLamp: React.FC = () => {
         {/* Radial Light Cone under Lamp when Light is ON */}
         {!isDark && (
           <div
-            className="absolute top-12 w-48 sm:w-64 h-36 sm:h-44 pointer-events-none opacity-40 transition-opacity duration-500"
+            className="absolute top-12 w-36 sm:w-56 md:w-64 h-28 sm:h-40 md:h-44 pointer-events-none opacity-40 transition-opacity duration-500"
             style={{
               background: 'radial-gradient(ellipse at top, rgba(253, 224, 71, 0.45) 0%, rgba(251, 191, 36, 0.15) 50%, transparent 80%)',
             }}

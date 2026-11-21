@@ -110,10 +110,10 @@ export const JobSearch: React.FC<JobSearchProps> = ({
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-white dark:bg-gray-800 p-2 sm:p-3 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row items-stretch gap-2 transition-colors relative"
+      className="bg-white dark:bg-gray-800 p-2 sm:p-3 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 flex flex-col sm:grid sm:grid-cols-2 lg:flex lg:flex-row items-stretch gap-2 transition-colors relative"
     >
       {/* 1. Keyword / Service Combobox */}
-      <div ref={serviceRef} className="flex-1 relative">
+      <div ref={serviceRef} className="flex-1 min-w-0 relative">
         <div
           onClick={() => setShowServiceDropdown(true)}
           className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 dark:bg-gray-700/60 rounded-xl focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white dark:focus-within:bg-gray-700 transition cursor-text border border-transparent focus-within:border-blue-500"
@@ -128,7 +128,7 @@ export const JobSearch: React.FC<JobSearchProps> = ({
               setKeyword(e.target.value);
               setShowServiceDropdown(true);
             }}
-            className="w-full bg-transparent text-sm focus:outline-none text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 font-medium"
+            className="w-full min-w-0 bg-transparent text-sm focus:outline-none text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 font-medium"
           />
           {keyword && (
             <button
@@ -157,7 +157,7 @@ export const JobSearch: React.FC<JobSearchProps> = ({
 
         {/* Scrollable Services List Dropdown */}
         {showServiceDropdown && (
-          <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl ring-1 ring-black/10 dark:ring-white/10 border border-gray-100 dark:border-gray-700 max-h-80 overflow-y-auto z-50 p-2 divide-y divide-gray-100 dark:divide-gray-700/50">
+          <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl ring-1 ring-black/10 dark:ring-white/10 border border-gray-100 dark:border-gray-700 max-h-64 sm:max-h-80 overflow-y-auto z-50 p-2 divide-y divide-gray-100 dark:divide-gray-700/50">
             <div className="pt-1 space-y-0.5">
               {filteredServices.length === 0 ? (
                 <div className="p-3 text-center text-xs text-gray-500 dark:text-gray-400">
@@ -186,7 +186,7 @@ export const JobSearch: React.FC<JobSearchProps> = ({
       </div>
 
       {/* 2. Location Combobox with Default Entire Country */}
-      <div ref={locationRef} className="flex-1 relative">
+      <div ref={locationRef} className="flex-1 min-w-0 relative">
         <div
           onClick={() => setShowLocationDropdown(true)}
           className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 dark:bg-gray-700/60 rounded-xl focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white dark:focus-within:bg-gray-700 transition cursor-text border border-transparent focus-within:border-blue-500"
@@ -201,7 +201,7 @@ export const JobSearch: React.FC<JobSearchProps> = ({
               setLocation(e.target.value);
               setShowLocationDropdown(true);
             }}
-            className="w-full bg-transparent text-sm focus:outline-none text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 font-medium"
+            className="w-full min-w-0 bg-transparent text-sm focus:outline-none text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 font-medium"
           />
           {location && location !== 'Entire Sri Lanka (All Country)' && (
             <button
@@ -231,7 +231,7 @@ export const JobSearch: React.FC<JobSearchProps> = ({
 
         {/* Scrollable Locations List Dropdown */}
         {showLocationDropdown && (
-          <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl ring-1 ring-black/10 dark:ring-white/10 border border-gray-100 dark:border-gray-700 max-h-80 overflow-y-auto z-50 p-2 divide-y divide-gray-100 dark:divide-gray-700/50">
+          <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl ring-1 ring-black/10 dark:ring-white/10 border border-gray-100 dark:border-gray-700 max-h-64 sm:max-h-80 overflow-y-auto z-50 p-2 divide-y divide-gray-100 dark:divide-gray-700/50">
             <div className="px-3 py-1.5 text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center justify-between">
               <span>Select District or City</span>
               <span>{filteredLocations.length} locations</span>
@@ -266,7 +266,7 @@ export const JobSearch: React.FC<JobSearchProps> = ({
       </div>
 
       {/* 3. Job Type select */}
-      <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 dark:bg-gray-700/60 rounded-xl focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white dark:focus-within:bg-gray-700 transition md:w-44 border border-transparent">
+      <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 dark:bg-gray-700/60 rounded-xl focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white dark:focus-within:bg-gray-700 transition lg:w-44 min-w-0 border border-transparent">
         <FiBriefcase className="text-gray-400 dark:text-gray-300 w-5 h-5 shrink-0" />
         <select
           value={type}

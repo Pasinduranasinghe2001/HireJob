@@ -338,8 +338,8 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[82vh] flex items-center justify-center py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-6 bg-white dark:bg-gray-800 p-7 sm:p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+    <div className="min-h-[82vh] flex items-center justify-center py-8 sm:py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-6 bg-white dark:bg-gray-800 p-5 sm:p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
         {/* Orange Brand Logo */}
         <div className="text-center space-y-2">
           <Link
@@ -473,7 +473,7 @@ export const LoginPage: React.FC = () => {
       {/* Forgot Password Modal */}
       {showForgotModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-5 shadow-2xl border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-5 sm:p-8 space-y-5 shadow-2xl border border-gray-100 dark:border-gray-700 max-h-[90dvh] overflow-y-auto">
             <div className="text-center">
               <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/40 text-[#f95a03] dark:text-[#fa9d01] rounded-full flex items-center justify-center mx-auto mb-3">
                 <FiKey className="w-6 h-6" />
@@ -606,7 +606,7 @@ export const LoginPage: React.FC = () => {
       {/* 2FA Verification Modal */}
       {show2FAModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-gray-100 dark:border-gray-700 text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-5 sm:p-8 space-y-6 shadow-2xl border border-gray-100 dark:border-gray-700 text-center max-h-[90dvh] overflow-y-auto">
             <div className="w-14 h-14 bg-amber-100 dark:bg-amber-900/40 text-[#f95a03] dark:text-[#fa9d01] rounded-full flex items-center justify-center mx-auto">
               <FiShield className="w-7 h-7" />
             </div>

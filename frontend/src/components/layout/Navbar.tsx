@@ -43,37 +43,37 @@ export const Navbar: React.FC = () => {
   return (
     <nav className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-50 shadow-xs transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex justify-between items-center h-16 gap-2">
           {/* Logo */}
-          <div className="flex items-center">
-            <Link to="/" className="flex items-center gap-2.5 group select-none">
+          <div className="flex items-center min-w-0">
+            <Link to="/" className="flex items-center gap-2 sm:gap-2.5 group select-none shrink-0">
               <img
                 src="/logo-icon.png"
                 alt="HireJob Icon"
-                className="h-10 w-10 sm:h-11 sm:w-11 object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-300"
+                className="h-9 w-9 sm:h-10 sm:w-10 lg:h-11 lg:w-11 object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-300"
               />
-              <span className="text-2xl sm:text-[26px] font-black tracking-tight leading-none transition-colors">
+              <span className="text-xl sm:text-2xl lg:text-[26px] font-black tracking-tight leading-none transition-colors">
                 <span className="text-gray-900 dark:text-white">Hire</span>
                 <span className="bg-gradient-to-b from-[#fa9d01] to-[#f95a03] bg-clip-text text-transparent">Job</span>
               </span>
             </Link>
-            <div className="hidden md:flex ml-10 space-x-6">
+            <div className="hidden md:flex ml-5 lg:ml-10 space-x-3 lg:space-x-6 shrink-0">
               <Link
                 to="/"
-                className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium text-sm transition"
+                className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium text-sm transition whitespace-nowrap"
               >
                 {t('nav.home')}
               </Link>
               <Link
                 to="/jobs"
-                className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium text-sm transition"
+                className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium text-sm transition whitespace-nowrap"
               >
                 {t('nav.jobs')}
               </Link>
               {isAuthenticated && (
                 <Link
                   to="/dashboard"
-                  className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium text-sm transition"
+                  className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium text-sm transition whitespace-nowrap"
                 >
                   {t('nav.dashboard')}
                 </Link>
@@ -81,9 +81,9 @@ export const Navbar: React.FC = () => {
               {isAuthenticated && user?.role === 'ROLE_ADMIN' && (
                 <Link
                   to="/admin"
-                  className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 hover:text-purple-700 font-semibold text-sm transition"
+                  className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 hover:text-purple-700 font-semibold text-sm transition whitespace-nowrap"
                 >
-                  <FiShield className="w-4 h-4" />
+                  <FiShield className="w-4 h-4 shrink-0" />
                   {t('nav.admin')}
                 </Link>
               )}
@@ -91,7 +91,7 @@ export const Navbar: React.FC = () => {
           </div>
 
           {/* Right Action Buttons */}
-          <div className="hidden md:flex items-center space-x-3">
+          <div className="hidden md:flex items-center space-x-2 lg:space-x-3 shrink-0">
             {/* Language Switcher */}
             <div className="relative">
               <button
@@ -155,20 +155,20 @@ export const Navbar: React.FC = () => {
               <>
                 <Link
                   to="/post-job"
-                  className="inline-flex items-center gap-2 px-4 py-2 border border-transparent text-sm font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition"
+                  className="inline-flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 border border-transparent text-xs lg:text-sm font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition whitespace-nowrap"
                 >
-                  <FiPlusCircle className="w-4 h-4" />
+                  <FiPlusCircle className="w-4 h-4 shrink-0" />
                   {t('nav.postJob')}
                 </Link>
-                <div className="flex items-center gap-3 pl-2 border-l border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-2 lg:gap-3 pl-2 border-l border-gray-200 dark:border-gray-700">
                   <Link
                     to="/profile"
                     className="flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 font-medium text-sm"
                   >
-                    <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-gray-800 text-blue-600 dark:text-blue-400 flex items-center justify-center font-semibold text-xs border border-blue-200 dark:border-blue-700">
+                    <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-gray-800 text-blue-600 dark:text-blue-400 flex items-center justify-center font-semibold text-xs border border-blue-200 dark:border-blue-700 shrink-0">
                       {user?.fullName?.charAt(0).toUpperCase() || <FiUser />}
                     </div>
-                    <span>{user?.fullName}</span>
+                    <span className="max-w-[110px] lg:max-w-[170px] truncate">{user?.fullName}</span>
                   </Link>
                   <button
                     onClick={handleLogout}
@@ -233,7 +233,7 @@ export const Navbar: React.FC = () => {
 
       {/* Mobile menu dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-gray-100 dark:border-gray-800 px-4 pt-2 pb-4 space-y-2 bg-white dark:bg-gray-900">
+        <div className="md:hidden border-t border-gray-100 dark:border-gray-800 px-4 pt-2 pb-4 space-y-2 bg-white dark:bg-gray-900 max-h-[calc(100dvh-4rem)] overflow-y-auto">
           <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-800">
             <span className="text-xs text-gray-500 dark:text-gray-400 font-semibold">{t('lang.select')}:</span>
             <div className="flex gap-1">

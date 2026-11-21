@@ -203,8 +203,8 @@ export const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full bg-white dark:bg-gray-800 p-7 sm:p-9 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-5">
+    <div className="min-h-[85vh] flex items-center justify-center py-8 sm:py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full bg-white dark:bg-gray-800 p-5 sm:p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-5">
         {step === 'form' ? (
           <>
             <div className="space-y-4">
@@ -274,7 +274,7 @@ export const RegisterPage: React.FC = () => {
 
             <form className="space-y-3.5" onSubmit={handleRequestOtp}>
               {accountType === 'personal' ? (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <input
                     type="text"
                     required
@@ -507,7 +507,7 @@ export const RegisterPage: React.FC = () => {
       {/* Terms & Privacy Summary Modal */}
       {showTermsModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-5 sm:p-6 space-y-4 shadow-2xl border border-gray-100 dark:border-gray-700 max-h-[90dvh] overflow-y-auto">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">User Agreement &amp; Privacy Notice</h3>
             <div className="text-xs text-gray-600 dark:text-gray-300 space-y-2 leading-relaxed">
               <p>1. Only verified registered accounts may publish job or service postings on HireJob Sri Lanka. All visitors can freely browse and inspect public service posts.</p>

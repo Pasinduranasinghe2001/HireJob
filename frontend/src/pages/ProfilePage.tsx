@@ -258,7 +258,7 @@ export const ProfilePage: React.FC = () => {
         </div>
 
         {/* Edit Form */}
-        <div className="md:col-span-2 bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-xs space-y-6">
+        <div className="md:col-span-2 bg-white dark:bg-gray-800 p-5 sm:p-8 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-xs space-y-6">
           <h3 className="text-base font-bold text-gray-900 dark:text-white">Personal Contact Information</h3>
           <form onSubmit={handleUpdate} className="space-y-4">
             <div>
@@ -518,7 +518,7 @@ export const ProfilePage: React.FC = () => {
       {/* Email Verification Modal */}
       {showEmailModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-gray-100 dark:border-gray-700 text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-5 sm:p-8 space-y-6 shadow-2xl border border-gray-100 dark:border-gray-700 text-center max-h-[90dvh] overflow-y-auto">
             <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto">
               <FiCheckCircle className="w-7 h-7" />
             </div>

@@ -364,7 +364,7 @@ export const AdminPage: React.FC = () => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex gap-2 border-b border-gray-100 dark:border-gray-800 pb-2 overflow-x-auto">
+      <div className="flex gap-2 border-b border-gray-100 dark:border-gray-800 pb-2 overflow-x-auto no-scrollbar">
         {[
           { id: 'overview', label: 'Overview' },
           { id: 'jobs', label: `Listings (${jobs.length})` },
@@ -1018,7 +1018,7 @@ export const AdminPage: React.FC = () => {
       {/* Modal: Create Company Team or User Account */}
       {showCreateUserModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 sm:p-7 space-y-4 shadow-2xl border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-5 sm:p-7 space-y-4 shadow-2xl border border-gray-100 dark:border-gray-700 max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <FiUserPlus className="text-blue-600" /> Create Team / User Account
@@ -1103,7 +1103,7 @@ export const AdminPage: React.FC = () => {
       {/* Modal: Edit User Details & Role */}
       {editingUser && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 sm:p-7 space-y-4 shadow-2xl border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-5 sm:p-7 space-y-4 shadow-2xl border border-gray-100 dark:border-gray-700 max-h-[90dvh] overflow-y-auto">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">Edit Account: {editingUser.email}</h3>
             <form onSubmit={handleUpdateUser} className="space-y-3">
               <div>

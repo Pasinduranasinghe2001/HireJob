@@ -121,7 +121,7 @@ export const JobsPage: React.FC = () => {
             <LoadingSpinner size="lg" className="py-20" />
           ) : filteredJobs.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 sm:gap-6">
                 {filteredJobs.map((job) => (
                   <JobCard key={job.id} job={job} onRefresh={triggerRefresh} />
                 ))}
@@ -129,7 +129,7 @@ export const JobsPage: React.FC = () => {
 
               {/* Pagination controls */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 pt-8">
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-6 sm:pt-8">
                   <button
                     disabled={page === 0}
                     onClick={() => setPage((p) => Math.max(p - 1, 0))}

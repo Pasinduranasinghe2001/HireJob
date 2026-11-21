@@ -116,9 +116,9 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onRefresh }) => {
             </div>
           )}
 
-          <div className="p-5">
+          <div className="p-4 sm:p-5">
             {/* Badges */}
-            <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span
                   className={`px-2.5 py-0.5 text-xs font-semibold rounded-full ${
@@ -159,7 +159,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onRefresh }) => {
             {/* Metadata */}
             <div className="mt-4 space-y-2 text-xs text-gray-500 dark:text-gray-400">
               {job.location && (
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 min-w-0">
                   <FiMapPin className="text-gray-400 shrink-0" />
                   <span className="truncate">{job.location}</span>
                 </div>
@@ -178,7 +178,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onRefresh }) => {
             </div>
 
             {/* Direct Contact Buttons (Ebay/AliExpress Marketplace Style) */}
-            <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700/60 flex items-center gap-2">
+            <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700/60 flex flex-wrap items-center gap-2 min-w-0">
               {phone && (
                 <a
                   href={`tel:${phone}`}
@@ -214,7 +214,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onRefresh }) => {
         </div>
 
         {/* Footer / Poster details & Boost option */}
-        <div className="p-4 pt-2 border-t border-gray-50 dark:border-gray-700/50 flex items-center justify-between text-xs text-gray-400">
+        <div className="p-4 pt-2 border-t border-gray-50 dark:border-gray-700/50 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-400">
           <div className="flex items-center gap-1.5 truncate max-w-[50%]">
             <FiUser className="shrink-0" />
             <span className="truncate">{job.postedBy?.fullName || 'Employer'}</span>

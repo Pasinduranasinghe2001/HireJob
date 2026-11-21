@@ -109,8 +109,8 @@ export const PostJobPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 sm:p-10 space-y-8">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 sm:p-8 md:p-10 space-y-8">
         <div>
           <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">
             {t('nav.postJob')}
@@ -133,7 +133,7 @@ export const PostJobPage: React.FC = () => {
             <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
               Type of Service / Opportunity
             </label>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <label
                 className={`flex flex-col p-4 rounded-xl border cursor-pointer transition ${
                   jobType === 'TEMPORARY'
