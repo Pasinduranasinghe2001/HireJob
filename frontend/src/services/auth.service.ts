@@ -11,10 +11,28 @@ export interface OtpDispatchResult {
   message?: string;
 }
 
+async function postWithColdStartRetry<T>(url: string, body: unknown, retries = 2): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const response = await api.post<ApiResponse<T>>(url, body, { timeout: 35000 });
+      return response.data.data;
+    } catch (err: any) {
+      lastError = err;
+      const status = err?.response?.status;
+      const isTransient = !err?.response || status === 502 || status === 503 || status === 504;
+      if (!isTransient || attempt === retries) {
+        throw err;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+    }
+  }
+  throw lastError;
+}
+
 export const authService = {
   async login(data: LoginData): Promise<AuthResponse> {
-    const response = await api.post<ApiResponse<AuthResponse>>('/auth/login', data);
-    const authData = response.data.data;
+    const authData = await postWithColdStartRetry<AuthResponse>('/auth/login', data);
     if (authData.token) {
       localStorage.setItem('token', authData.token);
       localStorage.setItem('user', JSON.stringify(authData.user));
@@ -68,8 +86,7 @@ export const authService = {
   },
 
   async loginWithGoogle(credential: string): Promise<AuthResponse> {
-    const response = await api.post<ApiResponse<AuthResponse>>('/auth/google', { credential });
-    const authData = response.data.data;
+    const authData = await postWithColdStartRetry<AuthResponse>('/auth/google', { credential });
     if (authData.token) {
       localStorage.setItem('token', authData.token);
       localStorage.setItem('user', JSON.stringify(authData.user));

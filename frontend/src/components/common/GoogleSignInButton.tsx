@@ -17,6 +17,7 @@ interface GoogleAccountsId {
   }) => void;
   renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
   prompt: () => void;
+  disableAutoSelect?: () => void;
 }
 declare global {
   interface Window {
@@ -120,6 +121,11 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     });
   }, [text]);
 
+  useEffect(() => {
+    // Pre-warm Render backend while the user views the Login/Register page
+    api.get('/auth/google/config', { timeout: 30000 }).catch(() => {});
+  }, []);
+
   const initializeGoogleButton = useCallback(async (): Promise<'ready' | 'missing_client_id' | 'unreachable'> => {
     const { clientId, reachable } = await fetchClientId();
     if (!reachable) return 'unreachable';
@@ -128,11 +134,13 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     await loadGsiScript();
     if (!gsiContainerRef.current || !window.google?.accounts?.id) return 'unreachable';
 
+    window.google.accounts.id.disableAutoSelect?.();
     window.google.accounts.id.initialize({
       client_id: clientId,
       callback: (res) => {
         if (res?.credential) callbackRef.current(res.credential);
       },
+      auto_select: false,
       ux_mode: 'popup',
       cancel_on_tap_outside: true,
       context: text === 'signup_with' ? 'signup' : 'signin',
@@ -228,11 +236,11 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         aria-hidden="true"
         className={
           gsiReady
-            ? 'absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-full opacity-[0.01] cursor-pointer scale-y-110'
+            ? 'absolute inset-0 z-10 w-full h-full flex items-center justify-center overflow-hidden rounded-full opacity-[0.01] cursor-pointer scale-x-105 scale-y-125'
             : 'hidden'
         }
       >
-        <div ref={gsiContainerRef} className="w-full flex justify-center" />
+        <div ref={gsiContainerRef} className="w-full h-full flex items-center justify-center" />
       </div>
     </div>
   );
